@@ -56,12 +56,12 @@
       "$code": {
         ".write": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid && !newData.exists()",
         "$teamId": {
-          ".read": "auth != null && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true",
+          ".read": "auth != null && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/players/' + auth.uid + '/teamId').val() === $teamId",
           "$uid": {
-            ".write": "auth != null && auth.uid === $uid && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true",
+            ".write": "auth != null && auth.uid === $uid && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/players/' + auth.uid + '/teamId').val() === $teamId",
             "voteUids": {
               "$voterUid": {
-                ".write": "auth != null && auth.uid === $voterUid && $voterUid !== $uid && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true",
+                ".write": "auth != null && auth.uid === $voterUid && $voterUid !== $uid && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/players/' + auth.uid + '/teamId').val() === $teamId",
                 ".validate": "newData.val() === true && root.child('confer/' + $code + '/' + $teamId + '/' + $uid + '/text').exists()"
               }
             }

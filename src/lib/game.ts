@@ -372,14 +372,24 @@ export function listenPlayerGame(
       return;
     }
 
-    conferUnsubscribe = onValue(ref(getRtdb(), conferRoot(code, teamId)), (snapshot) => {
-      state.myConfer = snapshot.val() ?? {};
-      emit();
-    });
-    lastTrumpetUnsubscribe = onValue(ref(getRtdb(), gamePath(code, `lastTrumpet/${teamId}`)), (snapshot) => {
-      state.myLastTrumpet = snapshot.val() ?? null;
-      emit();
-    });
+    conferUnsubscribe = onValue(
+      ref(getRtdb(), conferRoot(code, teamId)),
+      (snapshot) => {
+        state.myConfer = snapshot.val() ?? {};
+        emit();
+      },
+      () => {
+        conferUnsubscribe = null;
+        currentTeamId = '';
+      },
+    );
+    lastTrumpetUnsubscribe = onValue(
+      ref(getRtdb(), gamePath(code, `lastTrumpet/${teamId}`)),
+      (snapshot) => {
+        state.myLastTrumpet = snapshot.val() ?? null;
+        emit();
+      },
+    );
   };
 
   const unsubscribes = [
@@ -398,6 +408,7 @@ export function listenPlayerGame(
     }),
     onValue(ref(getRtdb(), gamePath(code, 'teams')), (snapshot) => {
       state.teams = snapshot.val() ?? {};
+      resetTeamListeners(state.players[uid]?.teamId ?? '');
       emit();
     }),
   ];
@@ -699,8 +710,8 @@ export async function assignPlayerTeam(code: string, uid: string, teamId: string
   if (meta.mode === 'ffa') throw new Error('Team selection is disabled in free-for-all.');
   if (!player || !teams?.[teamId]) throw new Error('Invalid team assignment.');
 
-  await update(ref(getRtdb(), gamePath(code, `players/${uid}`)), { teamId });
   await set(ref(getRtdb(), gamePath(code, `teams/${teamId}/memberUids/${uid}`)), true);
+  await update(ref(getRtdb(), gamePath(code, `players/${uid}`)), { teamId });
   if (player.teamId && player.teamId !== teamId) {
     await set(ref(getRtdb(), gamePath(code, `teams/${player.teamId}/memberUids/${uid}`)), null);
   }
