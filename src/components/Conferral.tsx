@@ -17,10 +17,20 @@ interface ConferralProps {
 
 export function Conferral({ code, uid, teamId, players, proposals }: ConferralProps) {
   const [text, setText] = useState('');
+  const [error, setError] = useState('');
   const memberCount = Object.values(players).filter((player) => player.teamId === teamId).length;
   if (memberCount <= 1) return null;
 
   const myProposal = proposals[uid];
+
+  const run = async (action: () => Promise<void>) => {
+    try {
+      setError('');
+      await action();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update conferral.');
+    }
+  };
 
   return (
     <section className="rounded-2xl border border-cream/15 bg-white/5 p-4">
@@ -35,17 +45,21 @@ export function Conferral({ code, uid, teamId, players, proposals }: ConferralPr
         <Button
           disabled={!text.trim()}
           onClick={() => {
-            void proposeAnswer(code, uid, text.trim()).then(() => setText(''));
+            void run(async () => {
+              await proposeAnswer(code, uid, text.trim());
+              setText('');
+            });
           }}
         >
           Propose
         </Button>
         {myProposal ? (
-          <Button variant="secondary" onClick={() => void unproposeAnswer(code, uid)}>
+          <Button variant="secondary" onClick={() => void run(() => unproposeAnswer(code, uid))}>
             Unpropose
           </Button>
         ) : null}
       </div>
+      {error ? <p className="mb-3 text-sm text-red-200">{error}</p> : null}
       <div className="space-y-2">
         {Object.entries(proposals).map(([proposalUid, proposal]) => (
           <article key={proposalUid} className="rounded-xl bg-black/20 p-3">
@@ -57,7 +71,7 @@ export function Conferral({ code, uid, teamId, players, proposals }: ConferralPr
               <Button
                 variant="secondary"
                 disabled={proposalUid === uid || Boolean(proposal.voteUids?.[uid])}
-                onClick={() => void upvoteProposal(code, uid, proposalUid)}
+                onClick={() => void run(() => upvoteProposal(code, uid, proposalUid))}
               >
                 {Object.keys(proposal.voteUids ?? {}).length} votes
               </Button>
