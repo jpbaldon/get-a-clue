@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Get a Clue
 
-## Getting Started
+Get a Clue is a client-only Next.js party game for live groups. Hosts sign in with Google, create question sets in Firestore, and run live rooms from Realtime Database. Players join anonymously from their devices.
 
-First, run the development server:
+## Local Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env.local
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Fill `.env.local` with the Firebase web app values from Project settings. The app shows a setup banner instead of crashing if the public Firebase values are missing.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Hosts use two devices: `/host/{code}/board` for the Discord screen-share, and `/host/{code}/control` for answers and judging. See `docs/host-screens.md`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Firebase Spark Setup
 
-## Learn More
+1. Create a Firebase project on the Spark plan.
+2. Add a web app and copy its public config into `.env.local`.
+3. Enable Authentication providers: Google and Anonymous.
+4. Create Firestore in production mode.
+5. Create Realtime Database in locked mode.
+6. Deploy rules:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+firebase deploy --only firestore:rules,database
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The app does not require Cloud Functions or paid Firebase services. Firestore stores `questionSets` by owner. Realtime Database stores live games under `games/{code}` and team conferral separately under `confer/{code}` so players do not read host answers or other teams' conferral data.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Vercel Setup
 
-## Deploy on Vercel
+1. Import the repo into Vercel.
+2. Add all `NEXT_PUBLIC_FIREBASE_*` variables from `.env.example`.
+3. Deploy with the default Next.js settings.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Because Firebase runs entirely in the browser, Vercel does not need server secrets for this app.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+```bash
+pnpm dev
+pnpm build
+pnpm lint
+pnpm exec tsc --noEmit
+```

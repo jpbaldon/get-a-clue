@@ -1,0 +1,12 @@
+---
+description: Discord board vs host control — never show contestant-secret info on the board screen
+alwaysApply: true
+---
+
+# Host screens
+
+Read `docs/host-screens.md` before changing host, board, or Double Portion code.
+
+The board route (`/host/[code]/board`) is screen-shared on Discord. Do not render answers, unused Double Portion marks, or host judging controls there. Do not load `hostOnly` or the Firestore question set on that client’s standing listeners. Hosts may open cells from either screen.
+
+Use two host devices: board (shared display: lobby, then the grid) and control (answers, judging, lobby settings). Randomize Double Portion at game start; the set editor must not pick those cells. The public board grid must fit in one viewport.

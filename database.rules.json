@@ -1,0 +1,73 @@
+{
+  "rules": {
+    "games": {
+      "$code": {
+        ".read": "auth != null && (!data.exists() || data.child('meta/hostId').val() === auth.uid)",
+        ".write": "auth != null && ((!data.exists() && newData.child('meta/hostId').val() === auth.uid) || (data.exists() && data.child('meta/hostId').val() === auth.uid))",
+        "meta": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid"
+        },
+        "public": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid",
+          "buzz": {
+            ".write": "auth != null && (root.child('games/' + $code + '/meta/hostId').val() === auth.uid || (root.child('games/' + $code + '/meta/phase').val() === 'buzzOpen' && !data.exists() && newData.exists() && newData.child('playerId').val() === auth.uid && root.child('games/' + $code + '/players/' + auth.uid + '/teamId').val() === newData.child('teamId').val()))"
+          },
+          "doublePortionWager": {
+            ".write": "auth != null && (root.child('games/' + $code + '/public/controlPlayerId').val() === auth.uid || root.child('games/' + $code + '/meta/hostId').val() === auth.uid)"
+          }
+        },
+        "players": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && ($uid === auth.uid || root.child('games/' + $code + '/meta/hostId').val() === auth.uid) && (root.child('games/' + $code + '/meta/phase').val() === 'lobby' || (data.exists() && newData.exists() && newData.child('connected').isBoolean() && newData.child('name').val() === data.child('name').val() && newData.child('teamId').val() === data.child('teamId').val()) || (!data.exists() && $uid === auth.uid && newData.exists() && root.child('games/' + $code + '/meta/phase').val() !== 'ended' && newData.child('connected').isBoolean() && newData.child('name').isString() && newData.child('teamId').isString() && newData.child('teamId').val() !== '' && root.child('games/' + $code + '/teams/' + newData.child('teamId').val()).exists()))"
+          }
+        },
+        "teams": {
+          ".read": "auth != null",
+          ".write": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid",
+          "$teamId": {
+            ".write": "auth != null && (root.child('games/' + $code + '/meta/hostId').val() === auth.uid || (root.child('games/' + $code + '/meta/mode').val() === 'ffa' && $teamId === 'player_' + auth.uid && !data.exists() && newData.child('memberUids/' + auth.uid).val() === true && root.child('games/' + $code + '/meta/phase').val() !== 'ended'))",
+            "memberUids": {
+              "$uid": {
+                ".write": "auth != null && (auth.uid === $uid || root.child('games/' + $code + '/meta/hostId').val() === auth.uid) && (root.child('games/' + $code + '/meta/phase').val() === 'lobby' || (auth.uid === $uid && !data.exists() && newData.val() === true && root.child('games/' + $code + '/meta/phase').val() !== 'ended' && root.child('games/' + $code + '/players/' + $uid + '/teamId').val() === $teamId))"
+              }
+            }
+          }
+        },
+        "hostOnly": {
+          ".read": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid",
+          ".write": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid"
+        },
+        "lastTrumpet": {
+          "$teamId": {
+            ".read": "auth != null && (root.child('games/' + $code + '/meta/hostId').val() === auth.uid || root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true)",
+            ".write": "auth != null && root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true"
+          }
+        },
+        "undo": {
+          ".read": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid",
+          ".write": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid"
+        }
+      }
+    },
+    "confer": {
+      "$code": {
+        ".write": "auth != null && root.child('games/' + $code + '/meta/hostId').val() === auth.uid && !newData.exists()",
+        "$teamId": {
+          ".read": "auth != null && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true",
+            "voteUids": {
+              "$voterUid": {
+                ".write": "auth != null && auth.uid === $voterUid && $voterUid !== $uid && auth.uid !== root.child('games/' + $code + '/meta/hostId').val() && root.child('games/' + $code + '/teams/' + $teamId + '/memberUids/' + auth.uid).val() === true",
+                ".validate": "newData.val() === true && root.child('confer/' + $code + '/' + $teamId + '/' + $uid + '/text').exists()"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
