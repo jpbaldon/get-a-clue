@@ -80,7 +80,7 @@ export default function SetsPage() {
                   Updated {new Date(setData.updatedAt).toLocaleString()}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <Link className="rounded-xl border border-cream/30 px-4 py-2 font-bold hover:bg-white/10" href={`/sets/${setData.id}`}>
+                  <Link prefetch={false} className="rounded-xl border border-cream/30 px-4 py-2 font-bold hover:bg-white/10" href={`/sets/${setData.id}`}>
                     Edit
                   </Link>
                   <Button onClick={() => void run(() => host(setData.id))}>Host</Button>

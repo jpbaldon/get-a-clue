@@ -1,21 +1,29 @@
+'use client';
+
 import type { BoardGameView } from '@/lib/game';
+
+import { QrCode } from './QrCode';
 
 interface BoardLobbyProps {
   game: BoardGameView;
+  joinUrl: string;
 }
 
-export function BoardLobby({ game }: BoardLobbyProps) {
+export function BoardLobby({ game, joinUrl }: BoardLobbyProps) {
   const code = game.meta?.roomCode ?? '';
   const players = Object.entries(game.players ?? {});
   const teams = Object.entries(game.teams ?? {});
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-      <div className="shrink-0 text-center">
-        <p className="text-sm uppercase tracking-widest text-cream/70">Join with this room code</p>
-        <p className="mt-2 text-[clamp(3rem,12vw,8rem)] font-black leading-none tracking-widest text-gold">
-          {code}
-        </p>
+      <div className="flex shrink-0 items-center justify-center gap-6">
+        <div className="text-center">
+          <p className="text-sm uppercase tracking-widest text-cream/70">Join with this room code</p>
+          <p className="mt-2 text-[clamp(2.5rem,8vw,6rem)] font-black leading-none tracking-widest text-gold">
+            {code}
+          </p>
+        </div>
+        <QrCode value={joinUrl} label="Or scan to join" size={140} />
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-hidden lg:grid-cols-3">
         {teams.map(([teamId, team]) => {

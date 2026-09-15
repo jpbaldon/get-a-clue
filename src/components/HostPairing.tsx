@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import { claimHostDevice, getHostDeviceId, type HostDeviceRole } from '@/lib/game';
 
+import { QrCode } from './QrCode';
 import { Button } from './ui';
 
 interface HostPairingProps {
@@ -60,6 +61,9 @@ export function HostPairing({ code, hostId, boardReady, controlReady, origin }: 
           <h2 className="mb-2 text-2xl font-black">Controls</h2>
           <p className="mb-3 text-sm text-cream/70">{controlReady ? 'Connected' : 'Not connected'}</p>
           <p className="mb-3 break-all text-xs text-cream/60">{controlUrl}</p>
+          <div className="mb-3 flex justify-center">
+            <QrCode value={origin ? controlUrl : ''} label="Scan with your phone" size={160} />
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => void claim('control')}>This is the control screen</Button>
             <Button variant="secondary" onClick={() => void copy('control', controlUrl)}>

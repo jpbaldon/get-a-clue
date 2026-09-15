@@ -13,6 +13,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const dynamic = "force-static";
+
 export const metadata: Metadata = {
   title: "Get a Clue",
   description: "Team clue game for live groups",

@@ -13,9 +13,10 @@ interface ConferralProps {
   teamId: string;
   players: Record<string, Player>;
   proposals: Record<string, Proposal>;
+  disabled?: boolean;
 }
 
-export function Conferral({ code, uid, teamId, players, proposals }: ConferralProps) {
+export function Conferral({ code, uid, teamId, players, proposals, disabled = false }: ConferralProps) {
   const [text, setText] = useState('');
   const [error, setError] = useState('');
   const memberCount = Object.values(players).filter((player) => player.teamId === teamId).length;
@@ -35,15 +36,19 @@ export function Conferral({ code, uid, teamId, players, proposals }: ConferralPr
   return (
     <section className="rounded-2xl border border-cream/15 bg-white/5 p-4">
       <h3 className="mb-3 text-xl font-black text-gold">Team conferral</h3>
+      {disabled ? (
+        <p className="mb-4 text-sm text-cream/80">Conferral is paused while your teammate answers.</p>
+      ) : null}
       <div className="mb-4 flex gap-2">
         <TextField
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder="Propose an answer"
           className="flex-1"
+          disabled={disabled}
         />
         <Button
-          disabled={!text.trim()}
+          disabled={disabled || !text.trim()}
           onClick={() => {
             void run(async () => {
               await proposeAnswer(code, uid, text.trim());
@@ -54,7 +59,11 @@ export function Conferral({ code, uid, teamId, players, proposals }: ConferralPr
           Propose
         </Button>
         {myProposal ? (
-          <Button variant="secondary" onClick={() => void run(() => unproposeAnswer(code, uid))}>
+          <Button
+            variant="secondary"
+            disabled={disabled}
+            onClick={() => void run(() => unproposeAnswer(code, uid))}
+          >
             Unpropose
           </Button>
         ) : null}
@@ -70,7 +79,7 @@ export function Conferral({ code, uid, teamId, players, proposals }: ConferralPr
               </div>
               <Button
                 variant="secondary"
-                disabled={proposalUid === uid || Boolean(proposal.voteUids?.[uid])}
+                disabled={disabled || proposalUid === uid || Boolean(proposal.voteUids?.[uid])}
                 onClick={() => void run(() => upvoteProposal(code, uid, proposalUid))}
               >
                 {Object.keys(proposal.voteUids ?? {}).length} votes

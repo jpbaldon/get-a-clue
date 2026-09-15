@@ -38,7 +38,7 @@ export default function HostPairingPage() {
   }, [code, user]);
 
   return (
-    <PageShell>
+    <PageShell showSetsLink={false}>
       {!user && !loading ? (
         <section className="mx-auto max-w-xl rounded-2xl border border-cream/15 bg-white/5 p-6 text-center">
           <h1 className="mb-4 text-3xl font-black text-gold">Host sign-in</h1>

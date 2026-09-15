@@ -330,6 +330,13 @@ async function readPlayerTeamId(code: string, uid: string): Promise<string> {
   return player.teamId;
 }
 
+async function assertConferralOpen(code: string, teamId: string): Promise<void> {
+  const gamePublic = await readGameChild<GamePublic>(code, 'public');
+  if (gamePublic?.buzz?.teamId === teamId) {
+    throw new Error('Conferral is paused while your teammate answers.');
+  }
+}
+
 async function readGame(code: string): Promise<GameState | null> {
   const snapshot = await get(ref(getRtdb(), gamePath(code)));
   return snapshot.exists() ? (snapshot.val() as GameState) : null;
@@ -1038,6 +1045,7 @@ export async function undoLast(code: string, hostId: string): Promise<void> {
 
 export async function proposeAnswer(code: string, uid: string, text: string): Promise<void> {
   const teamId = await readPlayerTeamId(code, uid);
+  await assertConferralOpen(code, teamId);
   await set(ref(getRtdb(), conferRoot(code, `${teamId}/${uid}`)), {
     text,
     voteUids: {},
@@ -1046,12 +1054,14 @@ export async function proposeAnswer(code: string, uid: string, text: string): Pr
 
 export async function unproposeAnswer(code: string, uid: string): Promise<void> {
   const teamId = await readPlayerTeamId(code, uid);
+  await assertConferralOpen(code, teamId);
   await remove(ref(getRtdb(), conferRoot(code, `${teamId}/${uid}`)));
 }
 
 export async function upvoteProposal(code: string, uid: string, proposalUid: string): Promise<void> {
   if (uid === proposalUid) throw new Error('You cannot upvote your own proposal.');
   const teamId = await readPlayerTeamId(code, uid);
+  await assertConferralOpen(code, teamId);
   await set(ref(getRtdb(), conferRoot(code, `${teamId}/${proposalUid}/voteUids/${uid}`)), true);
 }
 

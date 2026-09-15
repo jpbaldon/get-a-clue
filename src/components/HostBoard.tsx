@@ -20,6 +20,8 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
   const values = round === 'round1' ? game.public?.round1Values : game.public?.round2Values;
   const clue = game.public?.currentClue;
   const phase = game.meta?.phase ?? 'lobby';
+  const origin = typeof window === 'undefined' ? '' : window.location.origin;
+  const joinUrl = origin ? `${origin}/play/${code}` : '';
 
   const cellOpened = (nextRound: RoundId, cat: number, row: number) => {
     void openCell(code, hostId, nextRound, cat, row);
@@ -45,7 +47,7 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
           </p>
         )}
       </div>
-      {phase === 'lobby' ? <BoardLobby game={game} /> : null}
+      {phase === 'lobby' ? <BoardLobby game={game} joinUrl={joinUrl} /> : null}
 
       {phase !== 'lobby' ? (
         <Scoreboard
