@@ -7,7 +7,7 @@ import { Button, PageShell, TextField } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuestionSet } from '@/hooks/useQuestionSets';
 import { LAST_TRUMPET, ROUND1_LABEL, ROUND2_LABEL } from '@/lib/constants';
-import { lastTrumpetComplete, roundComplete } from '@/lib/question-set';
+import { setComplete } from '@/lib/question-set';
 import type { QuestionSet, RoundId } from '@/lib/types';
 
 function updateRoundField(
@@ -46,7 +46,11 @@ export default function SetEditorPage() {
   const save = async () => {
     if (!setData || !user) return;
     const id = await saveSet({ ...setData, ownerId: user.uid });
-    setMessage('Saved.');
+    setMessage(
+      setComplete(setData)
+        ? 'Saved.'
+        : 'Saved draft. Fill every clue and answer before hosting.',
+    );
     router.replace(`/sets/${id}`);
   };
 
@@ -65,17 +69,17 @@ export default function SetEditorPage() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                disabled={!roundComplete(setData.round1) || !roundComplete(setData.round2) || !lastTrumpetComplete(setData)}
-                onClick={() => void save()}
-              >
-                Save set
-              </Button>
+              <Button onClick={() => void save()}>Save set</Button>
               <Button variant="secondary" onClick={() => router.push('/sets')}>
                 Back
               </Button>
             </div>
           </div>
+          {setComplete(setData) ? null : (
+            <p className="text-sm text-cream/70">
+              You can save a draft at any time. Hosting requires every category, clue, and answer.
+            </p>
+          )}
           {message ? <p className="rounded-xl bg-green-900/50 p-3 text-green-100">{message}</p> : null}
           {(['round1', 'round2'] as const).map((round) => (
             <section key={round} className="rounded-2xl border border-cream/15 bg-white/5 p-4">

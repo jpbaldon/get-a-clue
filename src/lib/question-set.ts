@@ -53,3 +53,7 @@ export function lastTrumpetComplete(set: Pick<QuestionSet, 'lastTrumpet'>): bool
       set.lastTrumpet.answer.trim(),
   );
 }
+
+export function setComplete(set: Pick<QuestionSet, 'round1' | 'round2' | 'lastTrumpet'>): boolean {
+  return roundComplete(set.round1) && roundComplete(set.round2) && lastTrumpetComplete(set);
+}

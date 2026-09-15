@@ -9,6 +9,7 @@ import { Button, PageShell, TextField } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuestionSets } from '@/hooks/useQuestionSets';
 import { createGame } from '@/lib/game';
+import { setComplete } from '@/lib/question-set';
 import { getSet } from '@/lib/sets-api';
 
 export default function SetsPage() {
@@ -22,6 +23,7 @@ export default function SetsPage() {
     if (!user) return;
     const setData = await getSet(setId);
     if (!setData) throw new Error('Set not found.');
+    if (!setComplete(setData)) throw new Error('This set is incomplete. Fill every clue and answer first.');
     const code = await createGame(user.uid, setData, { maxPlayers, mode: 'teams', teamCount: 3 });
     router.push(`/host/${code}`);
   };
@@ -73,23 +75,34 @@ export default function SetsPage() {
           {error ? <p className="rounded-xl bg-red-900/50 p-3 text-red-100">{error}</p> : null}
           {setsLoading ? <p>Loading sets...</p> : null}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {sets.map((setData) => (
-              <article key={setData.id} className="rounded-2xl border border-cream/15 bg-white/5 p-4">
-                <h2 className="mb-1 text-2xl font-black">{setData.title}</h2>
-                <p className="mb-4 text-sm text-cream/60">
-                  Updated {new Date(setData.updatedAt).toLocaleString()}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Link prefetch={false} className="rounded-xl border border-cream/30 px-4 py-2 font-bold hover:bg-white/10" href={`/sets/${setData.id}`}>
-                    Edit
-                  </Link>
-                  <Button onClick={() => void run(() => host(setData.id))}>Host</Button>
-                  <Button variant="danger" onClick={() => void run(() => deleteSet(setData.id))}>
-                    Delete
-                  </Button>
-                </div>
-              </article>
-            ))}
+            {sets.map((setData) => {
+              const complete = setComplete(setData);
+
+              return (
+                <article key={setData.id} className="rounded-2xl border border-cream/15 bg-white/5 p-4">
+                  <h2 className="mb-1 text-2xl font-black">{setData.title}</h2>
+                  <p className="mb-4 text-sm text-cream/60">
+                    Updated {new Date(setData.updatedAt).toLocaleString()}
+                    {complete ? null : ' · Incomplete'}
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Link prefetch={false} className="rounded-xl border border-cream/30 px-4 py-2 font-bold hover:bg-white/10" href={`/sets/${setData.id}`}>
+                      Edit
+                    </Link>
+                    <Button
+                      disabled={!complete}
+                      title={complete ? 'Start a room with this set' : 'Fill every clue and answer before hosting'}
+                      onClick={() => void run(() => host(setData.id))}
+                    >
+                      Host
+                    </Button>
+                    <Button variant="danger" onClick={() => void run(() => deleteSet(setData.id))}>
+                      Delete
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </section>
       ) : null}

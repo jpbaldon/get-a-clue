@@ -11,7 +11,7 @@ That includes:
 - Clue answers
 - The Last Trumpet answer before the host reveals a team
 - Which cells are Double Portion, until that cell is opened (then it is public)
-- Host judging controls (Correct / Incorrect / Reveal / Undo / Open buzzing)
+- Host judging controls (Correct / Incorrect / Reveal / Undo / Open buzzing / buzz-on-reveal)
 - Host-only data from `hostOnly` (answers, Double Portion map)
 
 The board client must not fetch the question set from Firestore and must not subscribe to `hostOnly`. Use the public/player child listeners only (`meta`, `public`, `players`, `teams`). Opening a cell from the board may write via a host transaction; do not render answers or unused Double Portion marks.

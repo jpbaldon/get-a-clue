@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setLobbyMode, setMaxPlayers, startGame } from '@/lib/game';
+import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnReveal, setLobbyMode, setMaxPlayers, startGame } from '@/lib/game';
 import type { GameMode, GameState } from '@/lib/types';
 
 import { Button, TextField } from './ui';
@@ -64,6 +64,18 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
           onChange={(event) => setCap(Number(event.target.value))}
           className="mb-4 w-full"
         />
+        <label
+          className="mb-4 flex cursor-pointer items-center gap-2 text-sm font-bold"
+          title="Regular clues open buzzing immediately. Double Portion still waits for a wager."
+        >
+          <input
+            type="checkbox"
+            checked={Boolean(game.meta.buzzOnReveal)}
+            onChange={(event) => void run(() => setBuzzOnReveal(code, hostId, event.target.checked))}
+            className="size-4 accent-gold"
+          />
+          Open buzzing when clues are revealed
+        </label>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => void run(() => setLobbyMode(code, hostId, mode, teamCount))}>
             Apply lobby settings
