@@ -31,6 +31,7 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
     game.meta?.mode === 'teams' &&
     (Boolean(clue) || game.meta?.phase === 'lastTrumpetWager');
   const isAnswering = game.meta?.phase === 'answering' || (game.meta?.phase === 'buzzOpen' && Boolean(game.public?.buzz));
+  const conferralPaused = Boolean(player?.teamId && game.public?.buzz?.teamId === player.teamId);
 
   const run = async (action: () => Promise<void>) => {
     try {
@@ -126,6 +127,7 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
           teamId={player.teamId}
           players={game.players}
           proposals={game.myConfer}
+          disabled={conferralPaused}
         />
       ) : null}
 

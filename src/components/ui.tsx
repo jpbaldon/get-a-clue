@@ -23,23 +23,31 @@ export function Button({ className = '', variant = 'primary', ...props }: Button
 export function TextField({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`rounded-xl border border-cream/30 bg-navy-2 px-3 py-2 text-cream placeholder:text-cream/50 outline-none focus:border-gold ${className}`}
+      className={`rounded-xl border border-cream/30 bg-navy-2 px-3 py-2 text-cream placeholder:text-cream/50 outline-none focus:border-gold disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       {...props}
     />
   );
 }
 
-export function PageShell({ children }: { children: ReactNode }) {
+export function PageShell({
+  children,
+  showSetsLink = true,
+}: {
+  children: ReactNode;
+  showSetsLink?: boolean;
+}) {
   return (
     <main className="min-h-screen bg-navy text-cream">
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-6">
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <Link href="/" className="text-3xl font-black tracking-wide text-gold">
+          <Link prefetch={false} href="/" className="text-3xl font-black tracking-wide text-gold">
             Get a Clue
           </Link>
-          <Link href="/sets" className="rounded-lg border border-cream/20 px-3 py-2 text-sm hover:bg-white/10">
-            Question Sets
-          </Link>
+          {showSetsLink ? (
+            <Link prefetch={false} href="/sets" className="rounded-lg border border-cream/20 px-3 py-2 text-sm hover:bg-white/10">
+              Question Sets
+            </Link>
+          ) : null}
         </header>
         {children}
       </div>

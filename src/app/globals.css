@@ -30,5 +30,35 @@ body {
 }
 
 button, input, select, textarea {
-  font: inherit;
+  font-family: inherit;
+}
+
+.board-fill-cell {
+  container-type: size;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.board-fill-value {
+  font-size: min(16cqw, 39cqh);
+  line-height: 1;
+}
+
+.board-header-cell {
+  container-type: inline-size;
+}
+
+.board-header-text {
+  display: -webkit-box;
+  overflow: hidden;
+  min-width: 0;
+  width: 100%;
+  font-size: clamp(0.5rem, 18cqw, 0.95rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
