@@ -12,6 +12,7 @@ import {
   lockLastTrumpetAnswers,
   openBuzzing,
   openCell,
+  setBuzzOnReveal,
   playAgain,
   revealSkip,
   startLastTrumpet,
@@ -66,7 +67,19 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
               {game.players[game.public.controlPlayerId]?.name ?? 'No controller'}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              className="flex cursor-pointer items-center gap-2 text-sm font-bold"
+              title="Regular clues open buzzing immediately. Double Portion still waits for a wager."
+            >
+              <input
+                type="checkbox"
+                checked={Boolean(game.meta.buzzOnReveal)}
+                onChange={(event) => void setBuzzOnReveal(code, hostId, event.target.checked)}
+                className="size-4 accent-gold"
+              />
+              Open buzzing when clues are revealed
+            </label>
             <Button variant="secondary" disabled={!game.undo} onClick={() => void undoLast(code, hostId)}>
               Undo
             </Button>

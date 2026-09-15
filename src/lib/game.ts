@@ -32,6 +32,7 @@ import {
   WAGER_FLOOR,
 } from './constants';
 import { getRtdb } from './firebase';
+import { setComplete } from './question-set';
 import type {
   Buzz,
   GameMeta,
@@ -503,6 +504,10 @@ export async function claimHostDevice(
 }
 
 export async function createGame(hostId: string, setData: QuestionSet, options: CreateGameOptions = {}): Promise<string> {
+  if (!setComplete(setData)) {
+    throw new Error('This set is incomplete. Fill every clue and answer first.');
+  }
+
   const mode = options.mode ?? 'teams';
   const maxPlayers = clamp(options.maxPlayers ?? DEFAULT_MAX_PLAYERS, MIN_PLAYERS, MAX_PLAYERS_TEAMS);
   const teamCount =
@@ -524,6 +529,7 @@ export async function createGame(hostId: string, setData: QuestionSet, options: 
       maxPlayers,
       mode,
       teamCount,
+      buzzOnReveal: false,
       updatedAt: createdAt,
       createdAt,
     };
@@ -706,6 +712,20 @@ export async function setMaxPlayers(code: string, hostId: string, maxPlayers: nu
   });
 }
 
+export async function setBuzzOnReveal(code: string, hostId: string, enabled: boolean): Promise<void> {
+  await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
+    if (!game) throw new Error('Room not found.');
+    assertHost(game, hostId);
+    game.meta.buzzOnReveal = enabled;
+    game.meta.updatedAt = now();
+    if (enabled && game.meta.phase === 'clue') {
+      game.meta.phase = 'buzzOpen';
+      game.public.buzz = null;
+    }
+    return game;
+  });
+}
+
 export async function assignPlayerTeam(code: string, uid: string, teamId: string): Promise<void> {
   const [meta, player, teams] = await Promise.all([
     readGameChild<GameMeta>(code, 'meta'),
@@ -825,7 +845,7 @@ export async function openCell(
       ...game,
       meta: {
         ...game.meta,
-        phase: isDoublePortion ? 'doublePortion' : 'clue',
+        phase: isDoublePortion ? 'doublePortion' : game.meta.buzzOnReveal ? 'buzzOpen' : 'clue',
         round,
         updatedAt: now(),
       },

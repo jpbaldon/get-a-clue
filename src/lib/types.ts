@@ -95,6 +95,7 @@ export interface GameMeta {
   maxPlayers: number;
   mode: GameMode;
   teamCount: number;
+  buzzOnReveal: boolean;
   updatedAt: number;
   createdAt: number;
 }
