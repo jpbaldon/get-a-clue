@@ -24,7 +24,7 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
   const player = game.players[uid];
   const team = player ? game.teams[player.teamId] : null;
   const isControl = game.public?.controlPlayerId === uid;
-  const teamLocked = Boolean(player?.teamId && game.public?.lockouts?.[player.teamId]);
+  const teamLocked = Boolean(player?.teamId && game.public?.lockouts?.[player.teamId] === true);
   const canBuzz = game.meta?.phase === 'buzzOpen' && !teamLocked && !game.public?.buzz;
   const showConferral =
     Boolean(player?.teamId) &&

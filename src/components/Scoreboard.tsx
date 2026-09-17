@@ -11,6 +11,7 @@ export function Scoreboard({ teams, players, controlPlayerId = '', compact = fal
   return (
     <section className={`grid gap-3 ${compact ? 'grid-cols-2 lg:grid-cols-6' : 'md:grid-cols-3'}`}>
       {Object.entries(teams).map(([teamId, team]) => {
+        if (!team) return null;
         const members = Object.keys(team.memberUids ?? {});
         const hasControl = members.includes(controlPlayerId);
 

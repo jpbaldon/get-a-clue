@@ -37,7 +37,7 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
   const clue = game.public.currentClue;
   const buzz = game.public.buzz;
   const answer = clue ? game.hostOnly?.answers[clue.round][clue.cat][clue.row] : '';
-  const activeTeamIds = Object.entries(game.teams).filter(([, team]) => Object.keys(team.memberUids ?? {}).length > 0);
+  const activeTeamIds = Object.entries(game.teams).filter(([, team]) => team && Object.keys(team.memberUids ?? {}).length > 0);
   const everyTeamGuessed = activeTeamIds.every(([teamId]) => game.public.guessed?.[teamId]);
   const round = game.meta.round;
   const categories = round === 'round1' ? game.public.round1Categories : game.public.round2Categories;
@@ -109,7 +109,7 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
           <h2 className="mb-5 text-4xl font-black">{clue.text}</h2>
           <p className="mb-5 rounded-xl bg-black/30 p-3 text-xl text-gold">Answer: {answer}</p>
           <div className="flex flex-wrap justify-center gap-2">
-            {game.meta.phase === 'clue' ? (
+            {game.meta.phase === 'clue' || (game.meta.phase === 'answering' && !buzz) ? (
               <Button onClick={() => void openBuzzing(code, hostId)}>Open buzzing</Button>
             ) : null}
             {game.meta.phase === 'buzzOpen' && !buzz ? (

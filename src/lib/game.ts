@@ -109,6 +109,70 @@ function makeTeams(count: number): Record<string, Team> {
   );
 }
 
+function teamSortIndex(teamId: string): number {
+  const match = /^team(\d+)$/.exec(teamId);
+  return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+}
+
+function teamSize(team: Team | null | undefined): number {
+  return Object.keys(team?.memberUids ?? {}).length;
+}
+
+function occupiedTeams(teams: Record<string, Team> | null | undefined): [string, Team][] {
+  return Object.entries(teams ?? {})
+    .filter(([, team]) => teamSize(team) > 0)
+    .sort(([a], [b]) => teamSortIndex(a) - teamSortIndex(b));
+}
+
+/** Pack occupied lobby teams into Team 1..N so a vacant Team 2 does not leave Teams 1 and 3. */
+function compactOccupiedTeams(game: GameState): {
+  teams: Record<string, Team | null>;
+  players: Record<string, Player>;
+  teamCount: number;
+} {
+  const occupied = occupiedTeams(game.teams);
+  if (game.meta.mode === 'ffa') {
+    return {
+      teams: Object.fromEntries(occupied),
+      players: game.players ?? {},
+      teamCount: occupied.length,
+    };
+  }
+
+  const idMap: Record<string, string> = {};
+  const teams: Record<string, Team | null> = {};
+  Object.keys(game.teams ?? {}).forEach((oldId) => {
+    teams[oldId] = null;
+  });
+  occupied.forEach(([oldId, team], index) => {
+    const newId = `team${index + 1}`;
+    idMap[oldId] = newId;
+    teams[newId] = {
+      name: `Team ${index + 1}`,
+      color: TEAM_COLORS[index % TEAM_COLORS.length].hex,
+      score: team.score ?? 0,
+      memberUids: { ...(team.memberUids ?? {}) },
+    };
+  });
+
+  const players = Object.fromEntries(
+    Object.entries(game.players ?? {}).map(([uid, player]) => [
+      uid,
+      {
+        ...player,
+        teamId: player.teamId && idMap[player.teamId] ? idMap[player.teamId] : player.teamId,
+      },
+    ]),
+  );
+
+  return { teams, players, teamCount: occupied.length };
+}
+
+/** RTDB drops `{}` and may keep old children; null each key so lockouts/guessed actually clear. */
+function clearedFlags(flags: Record<string, boolean> | null | undefined): Record<string, boolean> {
+  return Object.fromEntries(Object.keys(flags ?? {}).map((key) => [key, null])) as unknown as Record<string, boolean>;
+}
+
 function makeHostOnly(set: QuestionSet, doublePortion: Record<string, boolean> = {}): HostOnly {
   return {
     answers: {
@@ -231,7 +295,7 @@ async function clearConfer(code: string): Promise<void> {
 
 function activeTeamIds(game: Pick<GameState, 'teams'>): string[] {
   return Object.entries(game.teams ?? {})
-    .filter(([, team]) => Object.keys(team.memberUids ?? {}).length > 0)
+    .filter(([, team]) => team && Object.keys(team.memberUids ?? {}).length > 0)
     .map(([teamId]) => teamId);
 }
 
@@ -243,10 +307,6 @@ function connectedPlayers(game: Pick<GameState, 'players'>): string[] {
 
 function randomItem<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)];
-}
-
-function teamSize(team: Team): number {
-  return Object.keys(team.memberUids ?? {}).length;
 }
 
 function pickLateJoinTeamId(teams: Record<string, Team>): string {
@@ -779,16 +839,14 @@ export async function startGame(code: string, hostId: string): Promise<void> {
       throw new Error('Sign in on two devices first: one for the Discord board, one for host controls.');
     }
 
-    const players = Object.entries(game.players ?? {});
-    if (players.length < MIN_PLAYERS) throw new Error('At least two contestants are required.');
-    if (players.some(([, player]) => !player.teamId)) throw new Error('Every player must be on a team.');
+    const playerEntries = Object.entries(game.players ?? {});
+    if (playerEntries.length < MIN_PLAYERS) throw new Error('At least two contestants are required.');
+    if (playerEntries.some(([, player]) => !player.teamId)) throw new Error('Every player must be on a team.');
 
-    const teams = Object.fromEntries(
-      Object.entries(game.teams ?? {}).filter(([, team]) => Object.keys(team.memberUids ?? {}).length > 0),
-    );
-    if (Object.keys(teams).length < MIN_PLAYERS) throw new Error('At least two contestant teams are required.');
+    const { teams, players, teamCount } = compactOccupiedTeams(game);
+    if (teamCount < MIN_TEAMS) throw new Error('At least two contestant teams are required.');
 
-    const nextGame = { ...game, teams };
+    const nextGame = { ...game, teams, players } as GameState;
     const controlPlayerId = pickRoundOneControl(nextGame);
     const doublePortion = assignDoublePortions();
 
@@ -797,7 +855,7 @@ export async function startGame(code: string, hostId: string): Promise<void> {
       meta: {
         ...game.meta,
         phase: 'board' as Phase,
-        teamCount: Object.keys(teams).length,
+        teamCount,
         updatedAt: now(),
       },
       public: {
@@ -853,8 +911,8 @@ export async function openCell(
         ...game.public,
         currentClue: publicClue,
         buzz: null,
-        lockouts: {},
-        guessed: {},
+        lockouts: clearedFlags(game.public.lockouts),
+        guessed: clearedFlags(game.public.guessed),
         doublePortionWager: null,
         revealedAnswer: null,
       },
@@ -884,7 +942,7 @@ export async function buzz(code: string, uid: string): Promise<void> {
   if (!meta || !gamePublic) throw new Error('Room not found.');
   if (!player?.teamId) throw new Error('Player is not on a team.');
   if (meta.phase !== 'buzzOpen') throw new Error('Buzzing is not open.');
-  if (gamePublic.lockouts?.[player.teamId]) throw new Error('Your team is locked out for this clue.');
+  if (gamePublic.lockouts?.[player.teamId] === true) throw new Error('Your team is locked out for this clue.');
 
   await runTransaction(ref(getRtdb(), gamePath(code, 'public/buzz')), (current: Buzz | null) => {
     if (current) return current;
@@ -893,13 +951,13 @@ export async function buzz(code: string, uid: string): Promise<void> {
 }
 
 export async function acknowledgeBuzz(code: string, hostId: string): Promise<void> {
-  const game = await readGame(code);
-  if (!game) throw new Error('Room not found.');
-  assertHost(game, hostId);
-  if (game.meta.phase !== 'buzzOpen' || !game.public.buzz) return;
-  await update(ref(getRtdb(), gamePath(code, 'meta')), {
-    phase: 'answering',
-    updatedAt: now(),
+  await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
+    if (!game) throw new Error('Room not found.');
+    assertHost(game, hostId);
+    if (game.meta.phase !== 'buzzOpen' || !game.public.buzz) return game;
+    game.meta.phase = 'answering';
+    game.meta.updatedAt = now();
+    return game;
   });
 }
 
@@ -917,7 +975,7 @@ export async function judgeBuzz(code: string, hostId: string, correct: boolean):
     game.teams[buzzValue.teamId] = { ...team, score };
     game.public.guessed = { ...(game.public.guessed ?? {}), [buzzValue.teamId]: true };
     game.public.lockouts = correct
-      ? {}
+      ? clearedFlags(game.public.lockouts)
       : { ...(game.public.lockouts ?? {}), [buzzValue.teamId]: true };
     game.public.buzz = null;
 
@@ -956,8 +1014,8 @@ export async function revealSkip(code: string, hostId: string): Promise<void> {
     game.public.used = { ...(game.public.used ?? {}), [cellKey(clue.round, clue.cat, clue.row)]: true };
     game.public.currentClue = null;
     game.public.buzz = null;
-    game.public.lockouts = {};
-    game.public.guessed = {};
+    game.public.lockouts = clearedFlags(game.public.lockouts);
+    game.public.guessed = clearedFlags(game.public.guessed);
     game.public.doublePortionWager = null;
     game.meta.phase = nextBoardPhase(game);
     game.meta.updatedAt = now();
@@ -982,8 +1040,8 @@ export async function anotherRound(code: string, hostId: string): Promise<void> 
     teamIds.forEach((teamId) => {
       game.teams[teamId].score += clue.value;
     });
-    game.public.lockouts = {};
-    game.public.guessed = {};
+    game.public.lockouts = clearedFlags(game.public.lockouts);
+    game.public.guessed = clearedFlags(game.public.guessed);
     game.public.buzz = null;
     game.meta.phase = 'buzzOpen';
     game.meta.updatedAt = now();
@@ -1029,8 +1087,8 @@ export async function judgeDoublePortion(code: string, hostId: string, correct: 
     game.public.used = { ...(game.public.used ?? {}), [cellKey(clue.round, clue.cat, clue.row)]: true };
     game.public.currentClue = null;
     game.public.doublePortionWager = null;
-    game.public.lockouts = {};
-    game.public.guessed = {};
+    game.public.lockouts = clearedFlags(game.public.lockouts);
+    game.public.guessed = clearedFlags(game.public.guessed);
     game.meta.phase = nextBoardPhase(game);
     game.meta.updatedAt = now();
     return game;
@@ -1184,7 +1242,7 @@ export async function playAgain(code: string, hostId: string): Promise<void> {
     if (!game) throw new Error('Room not found.');
     assertHost(game, hostId);
     Object.values(game.teams ?? {}).forEach((team) => {
-      team.score = 0;
+      if (team) team.score = 0;
     });
     game.meta.phase = 'board';
     game.meta.round = 'round1';
@@ -1195,8 +1253,8 @@ export async function playAgain(code: string, hostId: string): Promise<void> {
       currentClue: null,
       controlPlayerId: pickRoundOneControl(game),
       buzz: null,
-      lockouts: {},
-      guessed: {},
+      lockouts: clearedFlags(game.public.lockouts),
+      guessed: clearedFlags(game.public.guessed),
       doublePortionWager: null,
       lastTrumpetLocked: false,
       revealedAnswer: null,
