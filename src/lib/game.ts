@@ -31,7 +31,7 @@ import {
   TEAM_COLORS,
   WAGER_FLOOR,
 } from './constants';
-import { getRtdb } from './firebase';
+import { getFirebaseAuth, getRtdb } from './firebase';
 import { setComplete } from './question-set';
 import type {
   Buzz,
@@ -116,6 +116,10 @@ function teamSortIndex(teamId: string): number {
 
 function teamSize(team: Team | null | undefined): number {
   return Object.keys(team?.memberUids ?? {}).length;
+}
+
+export function teamsAreLocked(meta: Pick<GameMeta, 'teamsLocked'> | null | undefined): boolean {
+  return meta?.teamsLocked === true;
 }
 
 function occupiedTeams(teams: Record<string, Team> | null | undefined): [string, Team][] {
@@ -590,6 +594,7 @@ export async function createGame(hostId: string, setData: QuestionSet, options: 
       mode,
       teamCount,
       buzzOnReveal: false,
+      teamsLocked: false,
       updatedAt: createdAt,
       createdAt,
     };
@@ -670,12 +675,17 @@ export async function joinGame(code: string, uid: string, name: string): Promise
         score: 0,
         memberUids: { [uid]: true },
       });
+    } else if (teamsAreLocked(meta)) {
+      teamId = pickLateJoinTeamId(currentTeams);
     }
     await set(ref(getRtdb(), gamePath(code, `players/${uid}`)), {
       name: playerName,
       teamId,
       connected: true,
     });
+    if (teamId && meta.mode !== 'ffa') {
+      await set(ref(getRtdb(), gamePath(code, `teams/${teamId}/memberUids/${uid}`)), true);
+    }
     return;
   }
 
@@ -753,6 +763,7 @@ export async function setLobbyMode(
         mode,
         teamCount: nextTeamCount,
         maxPlayers: mode === 'ffa' ? Math.min(game.meta.maxPlayers, MAX_PLAYERS_FFA) : game.meta.maxPlayers,
+        teamsLocked: false,
         updatedAt: now(),
       },
       players,
@@ -786,6 +797,20 @@ export async function setBuzzOnReveal(code: string, hostId: string, enabled: boo
   });
 }
 
+export async function setTeamsLocked(code: string, hostId: string, locked: boolean): Promise<void> {
+  const game = await readGame(code);
+  if (!game) throw new Error('Room not found.');
+  assertHost(game, hostId);
+  if (game.meta.phase !== 'lobby') throw new Error('Teams freeze after the game starts.');
+  if (locked && game.meta.mode === 'ffa') {
+    throw new Error('Team lock is only available in team games.');
+  }
+  await update(ref(getRtdb(), gamePath(code, 'meta')), {
+    teamsLocked: locked,
+    updatedAt: now(),
+  });
+}
+
 export async function assignPlayerTeam(code: string, uid: string, teamId: string): Promise<void> {
   const [meta, player, teams] = await Promise.all([
     readGameChild<GameMeta>(code, 'meta'),
@@ -796,6 +821,15 @@ export async function assignPlayerTeam(code: string, uid: string, teamId: string
   if (meta.phase !== 'lobby') throw new Error('Teams freeze after the game starts.');
   if (meta.mode === 'ffa') throw new Error('Team selection is disabled in free-for-all.');
   if (!player || !teams?.[teamId]) throw new Error('Invalid team assignment.');
+
+  const actorId = getFirebaseAuth().currentUser?.uid;
+  if (!actorId) throw new Error('Sign in first.');
+  if (actorId !== meta.hostId && actorId !== uid) {
+    throw new Error('Only the host can move other players.');
+  }
+  if (teamsAreLocked(meta) && actorId !== meta.hostId) {
+    throw new Error('The host has locked teams.');
+  }
 
   await set(ref(getRtdb(), gamePath(code, `teams/${teamId}/memberUids/${uid}`)), true);
   await update(ref(getRtdb(), gamePath(code, `players/${uid}`)), { teamId });

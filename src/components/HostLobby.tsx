@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnReveal, setLobbyMode, setMaxPlayers, startGame } from '@/lib/game';
+import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnReveal, setLobbyMode, setMaxPlayers, setTeamsLocked, startGame, teamsAreLocked } from '@/lib/game';
 import type { GameMode, GameState } from '@/lib/types';
 
 import { Button, TextField } from './ui';
@@ -76,8 +76,25 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
           />
           Open buzzing when clues are revealed
         </label>
+        {game.meta.mode === 'teams' ? (
+          <label
+            className="mb-4 flex cursor-pointer items-center gap-2 text-sm font-bold"
+            title="Contestants cannot switch teams. You can still move them or auto-balance."
+          >
+            <input
+              type="checkbox"
+              checked={teamsAreLocked(game.meta)}
+              onChange={(event) => void run(() => setTeamsLocked(code, hostId, event.target.checked))}
+              className="size-4 accent-gold"
+            />
+            Lock players into teams
+          </label>
+        ) : null}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void run(() => setLobbyMode(code, hostId, mode, teamCount))}>
+          <Button
+            title="Applying settings rebuilds teams and lets contestants pick again."
+            onClick={() => void run(() => setLobbyMode(code, hostId, mode, teamCount))}
+          >
             Apply lobby settings
           </Button>
           <Button variant="secondary" onClick={() => void run(() => setMaxPlayers(code, hostId, cap))}>
@@ -100,7 +117,14 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
 
       {players.length > 0 && game.meta.mode === 'teams' ? (
         <div className="rounded-2xl border border-cream/15 bg-white/5 p-4">
-          <h4 className="mb-3 font-black text-gold">Move players</h4>
+          <h4 className="mb-1 font-black text-gold">Move players</h4>
+          {teamsAreLocked(game.meta) ? (
+            <p className="mb-3 text-sm text-cream/70">
+              Teams are locked. Contestants cannot switch. You can still move them.
+            </p>
+          ) : (
+            <p className="mb-3 text-sm text-cream/70">Contestants can still pick a team until you lock them.</p>
+          )}
           <ul className="max-w-md space-y-2">
             {players.map(([uid, player]) => (
               <li key={uid}>
@@ -108,9 +132,14 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
                   <span className="w-36 shrink-0 truncate font-bold">{player.name}</span>
                   <select
                     value={player.teamId}
-                    onChange={(event) => void assignPlayerTeam(code, uid, event.target.value)}
+                    onChange={(event) => void run(() => assignPlayerTeam(code, uid, event.target.value))}
                     className="min-w-0 flex-1 rounded-lg border border-cream/30 bg-navy-2 px-2 py-1"
                   >
+                    {!player.teamId ? (
+                      <option value="" disabled>
+                        Unassigned
+                      </option>
+                    ) : null}
                     {Object.entries(game.teams ?? {}).map(([teamId, team]) => (
                       <option key={teamId} value={teamId}>
                         {team.name}

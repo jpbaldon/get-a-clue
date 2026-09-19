@@ -1,6 +1,6 @@
 'use client';
 
-import type { BoardGameView } from '@/lib/game';
+import { teamsAreLocked, type BoardGameView } from '@/lib/game';
 
 import { QrCode } from './QrCode';
 
@@ -22,6 +22,9 @@ export function BoardLobby({ game, joinUrl }: BoardLobbyProps) {
           <p className="mt-2 text-[clamp(2.5rem,8vw,6rem)] font-black leading-none tracking-widest text-gold">
             {code}
           </p>
+          {teamsAreLocked(game.meta) ? (
+            <p className="mt-2 text-sm font-bold uppercase tracking-widest text-gold">Teams locked</p>
+          ) : null}
         </div>
         <QrCode value={joinUrl} label="Or scan to join" size={140} />
       </div>

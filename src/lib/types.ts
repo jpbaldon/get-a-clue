@@ -96,6 +96,8 @@ export interface GameMeta {
   mode: GameMode;
   teamCount: number;
   buzzOnReveal: boolean;
+  /** Lobby: contestants cannot change teams. Host and auto-balance still can. */
+  teamsLocked: boolean;
   updatedAt: number;
   createdAt: number;
 }
