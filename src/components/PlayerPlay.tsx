@@ -6,6 +6,7 @@ import { DOUBLE_PORTION, LAST_TRUMPET, WAGER_FLOOR } from '@/lib/constants';
 import { buzz, setDoublePortionWager, submitLastTrumpet } from '@/lib/game';
 import type { PlayerGameView } from '@/lib/game';
 
+import { BuzzOpensIn } from './BuzzOpensIn';
 import { Conferral } from './Conferral';
 import { Scoreboard } from './Scoreboard';
 import { Button, TextField } from './ui';
@@ -71,6 +72,12 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
           </p>
           <h2 className="mb-6 text-4xl font-black">{clue.text}</h2>
+
+          <BuzzOpensIn
+            phase={game.meta?.phase}
+            buzzOpensAt={game.public?.buzzOpensAt}
+            className="mb-6 text-2xl font-black text-gold"
+          />
 
           {game.meta?.phase === 'buzzOpen' && !game.public?.buzz ? (
             <Button

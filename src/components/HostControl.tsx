@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { useOpenBuzzingWhenDue } from '@/hooks/useOpenBuzzingWhenDue';
+import { DOUBLE_PORTION, LAST_TRUMPET } from '@/lib/constants';
 import {
   acknowledgeBuzz,
   anotherRound,
@@ -12,16 +14,18 @@ import {
   lockLastTrumpetAnswers,
   openBuzzing,
   openCell,
-  setBuzzOnReveal,
   playAgain,
   revealSkip,
+  setBuzzOnDelay,
+  setBuzzOnReveal,
   startLastTrumpet,
   undoLast,
 } from '@/lib/game';
-import { DOUBLE_PORTION, LAST_TRUMPET } from '@/lib/constants';
 import type { GameState, QuestionSet, RoundId } from '@/lib/types';
 
 import { Board } from './Board';
+import { BuzzOpensIn } from './BuzzOpensIn';
+import { BuzzRevealSettings } from './BuzzRevealSettings';
 import { Scoreboard } from './Scoreboard';
 import { Button } from './ui';
 
@@ -49,6 +53,8 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
     }
   }, [buzz, code, game.meta.phase, hostId]);
 
+  useOpenBuzzingWhenDue(code, hostId, game.meta.phase, game.public.buzzOpensAt);
+
   const cellOpened = (nextRound: RoundId, cat: number, row: number) => {
     void openCell(code, hostId, nextRound, cat, row, setData);
   };
@@ -68,18 +74,13 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <label
-              className="flex cursor-pointer items-center gap-2 text-sm font-bold"
-              title="Regular clues open buzzing immediately. Double Portion still waits for a wager."
-            >
-              <input
-                type="checkbox"
-                checked={Boolean(game.meta.buzzOnReveal)}
-                onChange={(event) => void setBuzzOnReveal(code, hostId, event.target.checked)}
-                className="size-4 accent-gold"
-              />
-              Open buzzing when clues are revealed
-            </label>
+            <BuzzRevealSettings
+              buzzOnReveal={Boolean(game.meta.buzzOnReveal)}
+              buzzOnDelay={Boolean(game.meta.buzzOnDelay)}
+              delaySeconds={game.meta.buzzDelaySeconds}
+              onBuzzOnReveal={(enabled) => void setBuzzOnReveal(code, hostId, enabled)}
+              onBuzzOnDelay={(enabled, seconds) => void setBuzzOnDelay(code, hostId, enabled, seconds)}
+            />
             <Button variant="secondary" disabled={!game.undo} onClick={() => void undoLast(code, hostId)}>
               Undo
             </Button>
@@ -112,6 +113,11 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
             {game.meta.phase === 'clue' || (game.meta.phase === 'answering' && !buzz) ? (
               <Button onClick={() => void openBuzzing(code, hostId)}>Open buzzing</Button>
             ) : null}
+            <BuzzOpensIn
+              phase={game.meta.phase}
+              buzzOpensAt={game.public.buzzOpensAt}
+              className="w-full text-lg text-cream/80"
+            />
             {game.meta.phase === 'buzzOpen' && !buzz ? (
               <p className="w-full text-lg text-cream/80">Buzzing is open.</p>
             ) : null}

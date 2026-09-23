@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 
-import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnReveal, setLobbyMode, setMaxPlayers, setTeamsLocked, startGame, teamsAreLocked } from '@/lib/game';
+import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnDelay, setBuzzOnReveal, setLobbyMode, setMaxPlayers, setTeamsLocked, startGame, teamsAreLocked } from '@/lib/game';
 import type { GameMode, GameState } from '@/lib/types';
 
+import { BuzzRevealSettings } from './BuzzRevealSettings';
 import { Button, TextField } from './ui';
 
 interface HostLobbyProps {
@@ -64,18 +65,15 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
           onChange={(event) => setCap(Number(event.target.value))}
           className="mb-4 w-full"
         />
-        <label
-          className="mb-4 flex cursor-pointer items-center gap-2 text-sm font-bold"
-          title="Regular clues open buzzing immediately. Double Portion still waits for a wager."
-        >
-          <input
-            type="checkbox"
-            checked={Boolean(game.meta.buzzOnReveal)}
-            onChange={(event) => void run(() => setBuzzOnReveal(code, hostId, event.target.checked))}
-            className="size-4 accent-gold"
+        <div className="mb-4">
+          <BuzzRevealSettings
+            buzzOnReveal={Boolean(game.meta.buzzOnReveal)}
+            buzzOnDelay={Boolean(game.meta.buzzOnDelay)}
+            delaySeconds={game.meta.buzzDelaySeconds}
+            onBuzzOnReveal={(enabled) => void run(() => setBuzzOnReveal(code, hostId, enabled))}
+            onBuzzOnDelay={(enabled, seconds) => void run(() => setBuzzOnDelay(code, hostId, enabled, seconds))}
           />
-          Open buzzing when clues are revealed
-        </label>
+        </div>
         {game.meta.mode === 'teams' ? (
           <label
             className="mb-4 flex cursor-pointer items-center gap-2 text-sm font-bold"

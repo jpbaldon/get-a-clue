@@ -30,6 +30,10 @@ export const DEVICE_ID_STORAGE_KEY = 'get-a-clue-device-id';
 export const STALE_MS = 24 * 60 * 60 * 1000;
 export const WAGER_FLOOR = 5;
 
+export const MIN_BUZZ_DELAY_SECONDS = 1;
+export const MAX_BUZZ_DELAY_SECONDS = 30;
+export const DEFAULT_BUZZ_DELAY_SECONDS = 5;
+
 export const TEAM_COLORS = [
   { id: '0', name: 'Blue', hex: '#3b82f6' },
   { id: '1', name: 'Gold', hex: '#e8c547' },

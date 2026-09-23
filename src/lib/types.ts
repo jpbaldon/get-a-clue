@@ -96,6 +96,9 @@ export interface GameMeta {
   mode: GameMode;
   teamCount: number;
   buzzOnReveal: boolean;
+  /** Regular clues wait this many whole seconds, then buzzing opens. Ignored if buzzOnReveal is on. */
+  buzzOnDelay: boolean;
+  buzzDelaySeconds: number;
   /** Lobby: contestants cannot change teams. Host and auto-balance still can. */
   teamsLocked: boolean;
   updatedAt: number;
@@ -107,6 +110,8 @@ export interface GamePublic {
   currentClue: PublicClue | null;
   controlPlayerId: string;
   buzz: Buzz | null;
+  /** Epoch ms when delayed buzzing should open. Null if no delay is running. */
+  buzzOpensAt: number | null;
   lockouts: Record<string, boolean>;
   guessed: Record<string, boolean>;
   doublePortionWager: number | null;

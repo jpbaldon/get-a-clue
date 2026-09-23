@@ -11,15 +11,18 @@ import {
 
 import {
   CATEGORY_COUNT,
+  DEFAULT_BUZZ_DELAY_SECONDS,
   DEFAULT_MAX_PLAYERS,
   DEFAULT_TEAM_COUNT,
   DEVICE_ID_STORAGE_KEY,
   DOUBLE_PORTION_ROUND1_COUNT,
   DOUBLE_PORTION_ROUND2_COUNT,
   HOST_DEVICE_STALE_MS,
+  MAX_BUZZ_DELAY_SECONDS,
   MAX_PLAYERS_FFA,
   MAX_PLAYERS_TEAMS,
   MAX_TEAMS,
+  MIN_BUZZ_DELAY_SECONDS,
   MIN_PLAYERS,
   MIN_TEAMS,
   ROOM_CODE_CHARS,
@@ -83,6 +86,12 @@ function now(): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+export function clampBuzzDelaySeconds(value: unknown): number {
+  const parsed = Math.trunc(Number(value));
+  if (!Number.isFinite(parsed)) return DEFAULT_BUZZ_DELAY_SECONDS;
+  return clamp(parsed, MIN_BUZZ_DELAY_SECONDS, MAX_BUZZ_DELAY_SECONDS);
 }
 
 export function generateRoomCode(): string {
@@ -198,6 +207,7 @@ function makePublic(set: QuestionSet): GamePublic {
     currentClue: null,
     controlPlayerId: '',
     buzz: null,
+    buzzOpensAt: null,
     lockouts: {},
     guessed: {},
     doublePortionWager: null,
@@ -594,6 +604,8 @@ export async function createGame(hostId: string, setData: QuestionSet, options: 
       mode,
       teamCount,
       buzzOnReveal: false,
+      buzzOnDelay: false,
+      buzzDelaySeconds: DEFAULT_BUZZ_DELAY_SECONDS,
       teamsLocked: false,
       updatedAt: createdAt,
       createdAt,
@@ -788,11 +800,25 @@ export async function setBuzzOnReveal(code: string, hostId: string, enabled: boo
     if (!game) throw new Error('Room not found.');
     assertHost(game, hostId);
     game.meta.buzzOnReveal = enabled;
+    if (enabled) game.meta.buzzOnDelay = false;
     game.meta.updatedAt = now();
     if (enabled && game.meta.phase === 'clue') {
       game.meta.phase = 'buzzOpen';
       game.public.buzz = null;
+      game.public.buzzOpensAt = null;
     }
+    return game;
+  });
+}
+
+export async function setBuzzOnDelay(code: string, hostId: string, enabled: boolean, seconds?: number): Promise<void> {
+  await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
+    if (!game) throw new Error('Room not found.');
+    assertHost(game, hostId);
+    game.meta.buzzOnDelay = enabled;
+    game.meta.buzzDelaySeconds = clampBuzzDelaySeconds(seconds ?? game.meta.buzzDelaySeconds);
+    if (enabled) game.meta.buzzOnReveal = false;
+    game.meta.updatedAt = now();
     return game;
   });
 }
@@ -933,11 +959,21 @@ export async function openCell(
       doublePortion: isDoublePortion,
     };
 
+    let phase: Phase = 'clue';
+    let buzzOpensAt: number | null = null;
+    if (isDoublePortion) {
+      phase = 'doublePortion';
+    } else if (game.meta.buzzOnReveal) {
+      phase = 'buzzOpen';
+    } else if (game.meta.buzzOnDelay) {
+      buzzOpensAt = now() + clampBuzzDelaySeconds(game.meta.buzzDelaySeconds) * 1000;
+    }
+
     return {
       ...game,
       meta: {
         ...game.meta,
-        phase: isDoublePortion ? 'doublePortion' : game.meta.buzzOnReveal ? 'buzzOpen' : 'clue',
+        phase,
         round,
         updatedAt: now(),
       },
@@ -945,6 +981,7 @@ export async function openCell(
         ...game.public,
         currentClue: publicClue,
         buzz: null,
+        buzzOpensAt,
         lockouts: clearedFlags(game.public.lockouts),
         guessed: clearedFlags(game.public.guessed),
         doublePortionWager: null,
@@ -960,10 +997,13 @@ export async function openBuzzing(code: string, hostId: string): Promise<void> {
   const game = await readGame(code);
   if (!game) throw new Error('Room not found.');
   assertHost(game, hostId);
+  if (game.meta.phase !== 'clue' && game.meta.phase !== 'answering') return;
+  if (game.meta.phase === 'answering' && game.public.buzz) return;
   await update(ref(getRtdb(), gamePath(code)), {
     'meta/phase': 'buzzOpen',
     'meta/updatedAt': now(),
     'public/buzz': null,
+    'public/buzzOpensAt': null,
   });
 }
 
@@ -1012,6 +1052,7 @@ export async function judgeBuzz(code: string, hostId: string, correct: boolean):
       ? clearedFlags(game.public.lockouts)
       : { ...(game.public.lockouts ?? {}), [buzzValue.teamId]: true };
     game.public.buzz = null;
+    game.public.buzzOpensAt = null;
 
     if (correct) {
       game.public.used = { ...(game.public.used ?? {}), [cellKey(clue.round, clue.cat, clue.row)]: true };
@@ -1048,6 +1089,7 @@ export async function revealSkip(code: string, hostId: string): Promise<void> {
     game.public.used = { ...(game.public.used ?? {}), [cellKey(clue.round, clue.cat, clue.row)]: true };
     game.public.currentClue = null;
     game.public.buzz = null;
+    game.public.buzzOpensAt = null;
     game.public.lockouts = clearedFlags(game.public.lockouts);
     game.public.guessed = clearedFlags(game.public.guessed);
     game.public.doublePortionWager = null;
@@ -1077,6 +1119,7 @@ export async function anotherRound(code: string, hostId: string): Promise<void> 
     game.public.lockouts = clearedFlags(game.public.lockouts);
     game.public.guessed = clearedFlags(game.public.guessed);
     game.public.buzz = null;
+    game.public.buzzOpensAt = null;
     game.meta.phase = 'buzzOpen';
     game.meta.updatedAt = now();
     return game;
@@ -1121,6 +1164,7 @@ export async function judgeDoublePortion(code: string, hostId: string, correct: 
     game.public.used = { ...(game.public.used ?? {}), [cellKey(clue.round, clue.cat, clue.row)]: true };
     game.public.currentClue = null;
     game.public.doublePortionWager = null;
+    game.public.buzzOpensAt = null;
     game.public.lockouts = clearedFlags(game.public.lockouts);
     game.public.guessed = clearedFlags(game.public.guessed);
     game.meta.phase = nextBoardPhase(game);
@@ -1287,6 +1331,7 @@ export async function playAgain(code: string, hostId: string): Promise<void> {
       currentClue: null,
       controlPlayerId: pickRoundOneControl(game),
       buzz: null,
+      buzzOpensAt: null,
       lockouts: clearedFlags(game.public.lockouts),
       guessed: clearedFlags(game.public.guessed),
       doublePortionWager: null,
