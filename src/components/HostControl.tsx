@@ -70,7 +70,6 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
       <p className="text-sm text-cream/70">
         Host controls. Keep this screen private until you reveal an answer. Share the board, not this one.
       </p>
-      <Scoreboard teams={game.teams} players={game.players} controlPlayerId={game.public.controlPlayerId} />
       <section className="rounded-2xl border border-cream/15 bg-white/5 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -226,6 +225,8 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
           </div>
         </section>
       ) : null}
+
+      <Scoreboard teams={game.teams} players={game.players} controlPlayerId={game.public.controlPlayerId} />
 
       {confirmLastTrumpet ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">

@@ -82,7 +82,7 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
 
       {clue && phase !== 'board' && phase !== 'lastTrumpetWager' && phase !== 'lastTrumpetReveal' && phase !== 'ended' ? (
         <section className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-gold/30 bg-blue-950 p-6 text-center">
-          <p className="mb-3 text-sm font-bold uppercase tracking-widest text-gold">
+          <p className="mb-3 text-3xl font-black uppercase tracking-widest text-gold">
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
           </p>
           <h2 className="max-w-5xl text-[clamp(1.5rem,4.5vw,4rem)] font-black leading-tight">{clue.text}</h2>
