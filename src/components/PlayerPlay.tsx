@@ -46,11 +46,6 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-5">
-      <Scoreboard
-        teams={game.teams}
-        players={game.players}
-        controlPlayerId={game.public?.controlPlayerId}
-      />
       {team ? (
         <p className="text-center text-cream/80">
           You are on <span className="font-bold" style={{ color: team.color }}>{team.name}</span>.
@@ -72,37 +67,38 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
           <p className="mb-2 text-sm font-bold uppercase text-gold">
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
           </p>
-          <h2 className="mb-6 text-4xl font-black">{clue.text}</h2>
-          {game.meta?.phase === 'answerRevealed' ? (
-            <p className="mb-6 text-3xl font-black text-gold">{game.public?.revealedAnswer || ''}</p>
-          ) : null}
 
           <BuzzOpensIn
             phase={game.meta?.phase}
             buzzOpensAt={game.public?.buzzOpensAt}
-            className="mb-6 text-2xl font-black text-gold"
+            className="mb-4 text-2xl font-black text-gold"
           />
 
           {game.meta?.phase === 'buzzOpen' && !game.public?.buzz ? (
             <Button
               disabled={!canBuzz}
               onClick={() => void run(() => buzz(code, uid))}
-              className="min-h-40 w-full rounded-full text-5xl shadow-2xl"
+              className="mb-6 min-h-40 w-full rounded-full text-5xl shadow-2xl"
             >
               BUZZ
             </Button>
           ) : null}
 
           {isAnswering ? (
-            <p className="text-2xl font-black text-gold">
+            <p className="mb-6 text-2xl font-black text-gold">
               {game.public?.buzz?.playerId === uid
                 ? 'You buzzed first. Answer out loud on Discord.'
                 : `${game.players[game.public?.buzz?.playerId ?? '']?.name ?? 'A contestant'} is answering.`}
             </p>
           ) : null}
 
+          <h2 className="text-4xl font-black">{clue.text}</h2>
+          {game.meta?.phase === 'answerRevealed' ? (
+            <p className="mt-6 text-3xl font-black text-gold">{game.public?.revealedAnswer || ''}</p>
+          ) : null}
+
           {game.meta?.phase === 'doublePortion' ? (
-            <div className="mx-auto max-w-md space-y-3">
+            <div className="mx-auto mt-6 max-w-md space-y-3">
               <p className="text-lg text-cream/80">
                 {isControl
                   ? 'Set your wager. Your teammates can see it and confer on the answer.'
@@ -193,6 +189,12 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
       ) : null}
 
       {message ? <p className="rounded-xl bg-red-900/50 p-3 text-red-100">{message}</p> : null}
+
+      <Scoreboard
+        teams={game.teams}
+        players={game.players}
+        controlPlayerId={game.public?.controlPlayerId}
+      />
     </div>
   );
 }
