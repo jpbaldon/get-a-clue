@@ -30,7 +30,8 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
   const showConferral =
     Boolean(player?.teamId) &&
     game.meta?.mode === 'teams' &&
-    (Boolean(clue) || game.meta?.phase === 'lastTrumpetWager');
+    (Boolean(clue) || game.meta?.phase === 'lastTrumpetWager') &&
+    game.meta?.phase !== 'answerRevealed';
   const isAnswering = game.meta?.phase === 'answering' || (game.meta?.phase === 'buzzOpen' && Boolean(game.public?.buzz));
   const conferralPaused = Boolean(player?.teamId && game.public?.buzz?.teamId === player.teamId);
 
@@ -72,6 +73,9 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
           </p>
           <h2 className="mb-6 text-4xl font-black">{clue.text}</h2>
+          {game.meta?.phase === 'answerRevealed' ? (
+            <p className="mb-6 text-3xl font-black text-gold">{game.public?.revealedAnswer || ''}</p>
+          ) : null}
 
           <BuzzOpensIn
             phase={game.meta?.phase}

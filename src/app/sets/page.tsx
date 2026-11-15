@@ -8,6 +8,7 @@ import { SetupBanner } from '@/components/SetupBanner';
 import { Button, PageShell, TextField } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuestionSets } from '@/hooks/useQuestionSets';
+import { DEFAULT_MAX_PLAYERS, MAX_PLAYERS_TEAMS, MIN_PLAYERS } from '@/lib/constants';
 import { createGame } from '@/lib/game';
 import { setComplete } from '@/lib/question-set';
 import { getSet } from '@/lib/sets-api';
@@ -16,7 +17,7 @@ export default function SetsPage() {
   const router = useRouter();
   const { user, loading, signInWithGoogle } = useAuth();
   const { sets, loading: setsLoading, createSet, createSampleSet, deleteSet } = useQuestionSets(user?.uid);
-  const [maxPlayers, setMaxPlayers] = useState(24);
+  const [maxPlayers, setMaxPlayers] = useState(DEFAULT_MAX_PLAYERS);
   const [error, setError] = useState('');
 
   const host = async (setId: string) => {
@@ -65,8 +66,8 @@ export default function SetsPage() {
             Join cap
             <TextField
               type="number"
-              min={2}
-              max={24}
+              min={MIN_PLAYERS}
+              max={MAX_PLAYERS_TEAMS}
               value={maxPlayers}
               onChange={(event) => setMaxPlayers(Number(event.target.value))}
               className="mt-1 w-full"
@@ -84,6 +85,9 @@ export default function SetsPage() {
                   <p className="mb-4 text-sm text-cream/60">
                     Updated {new Date(setData.updatedAt).toLocaleString()}
                     {complete ? null : ' · Incomplete'}
+                    {(setData.displayedKeys ?? []).length > 0
+                      ? ` · ${setData.displayedKeys.length} shown in games`
+                      : null}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     <Link prefetch={false} className="rounded-xl border border-cream/30 px-4 py-2 font-bold hover:bg-white/10" href={`/sets/${setData.id}`}>

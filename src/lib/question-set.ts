@@ -1,5 +1,5 @@
-import { CATEGORY_COUNT, ROW_COUNT, ROUND1_VALUES, ROUND2_VALUES } from './constants';
-import type { Clue, QuestionSet, RoundData, RoundId } from './types';
+import { CATEGORY_COUNT, LAST_TRUMPET_DISPLAYED_KEY, ROW_COUNT, ROUND1_VALUES, ROUND2_VALUES } from './constants';
+import { cellKey, type Clue, type QuestionSet, type RoundData, type RoundId } from './types';
 
 const emptyClue = (): Clue => ({
   text: '',
@@ -34,7 +34,30 @@ export function newQuestionSetDraft(ownerId: string): QuestionSet {
       clue: '',
       answer: '',
     },
+    displayedKeys: [],
   };
+}
+
+export function clueWasDisplayed(set: Pick<QuestionSet, 'displayedKeys'>, round: RoundId, cat: number, row: number): boolean {
+  return (set.displayedKeys ?? []).includes(cellKey(round, cat, row));
+}
+
+export function lastTrumpetWasDisplayed(set: Pick<QuestionSet, 'displayedKeys'>): boolean {
+  return (set.displayedKeys ?? []).includes(LAST_TRUMPET_DISPLAYED_KEY);
+}
+
+export function withoutDisplayedClue(
+  displayedKeys: string[] | undefined,
+  round: RoundId,
+  cat: number,
+  row: number,
+): string[] {
+  const key = cellKey(round, cat, row);
+  return (displayedKeys ?? []).filter((item) => item !== key);
+}
+
+export function withoutDisplayedLastTrumpet(displayedKeys: string[] | undefined): string[] {
+  return (displayedKeys ?? []).filter((item) => item !== LAST_TRUMPET_DISPLAYED_KEY);
 }
 
 export function roundComplete(round: RoundData): boolean {

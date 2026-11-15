@@ -10,12 +10,14 @@ export const ROUND1_VALUES = [200, 400, 600, 800, 1000] as const;
 export const ROUND2_VALUES = [400, 800, 1200, 1600, 2000] as const;
 
 export const MIN_PLAYERS = 2;
-export const MAX_PLAYERS_TEAMS = 24;
+export const MAX_PLAYERS_TEAMS = 36;
 export const MAX_PLAYERS_FFA = 6;
 export const MIN_TEAMS = 2;
 export const MAX_TEAMS = 6;
 export const DEFAULT_TEAM_COUNT = 3;
-export const DEFAULT_MAX_PLAYERS = 24;
+export const MAX_TEAM_NAME_LENGTH = 32;
+export const LAST_TRUMPET_DISPLAYED_KEY = 'lastTrumpet';
+export const DEFAULT_MAX_PLAYERS = 36;
 
 export const ROOM_CODE_LENGTH = 6;
 export const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

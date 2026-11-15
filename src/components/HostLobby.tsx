@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 
-import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnDelay, setBuzzOnReveal, setLobbyMode, setMaxPlayers, setTeamsLocked, startGame, teamsAreLocked } from '@/lib/game';
+import { MAX_PLAYERS_TEAMS, MAX_TEAM_NAME_LENGTH, MIN_PLAYERS } from '@/lib/constants';
+import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnDelay, setBuzzOnReveal, setLobbyMode, setMaxPlayers, setTeamName, setTeamsLocked, startGame, teamsAreLocked } from '@/lib/game';
 import type { GameMode, GameState } from '@/lib/types';
 
 import { BuzzRevealSettings } from './BuzzRevealSettings';
@@ -59,8 +60,8 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
         <label className="mb-2 block text-sm font-bold">Join cap</label>
         <TextField
           type="number"
-          min={2}
-          max={24}
+          min={MIN_PLAYERS}
+          max={MAX_PLAYERS_TEAMS}
           value={cap}
           onChange={(event) => setCap(Number(event.target.value))}
           className="mb-4 w-full"
@@ -112,6 +113,41 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
         ) : null}
         {error ? <p className="mt-3 text-red-200">{error}</p> : null}
       </div>
+
+      {game.meta.mode === 'teams' ? (
+        <div className="rounded-2xl border border-cream/15 bg-white/5 p-4">
+          <h4 className="mb-1 font-black text-gold">Team names</h4>
+          <p className="mb-3 text-sm text-cream/70">Names show on the board lobby and scoreboard.</p>
+          <ul className="max-w-md space-y-2">
+            {Object.entries(game.teams ?? {}).map(([teamId, team]) => (
+              <li key={teamId}>
+                <label className="flex items-center gap-3 text-sm">
+                  <span
+                    className="size-4 shrink-0 rounded-full"
+                    style={{ background: team.color }}
+                    aria-hidden
+                  />
+                  <TextField
+                    defaultValue={team.name}
+                    maxLength={MAX_TEAM_NAME_LENGTH}
+                    key={`${teamId}-${team.name}`}
+                    onBlur={(event) => {
+                      const next = event.target.value.trim();
+                      if (!next) {
+                        event.target.value = team.name;
+                        return;
+                      }
+                      if (next === team.name) return;
+                      void run(() => setTeamName(code, hostId, teamId, next));
+                    }}
+                    className="min-w-0 flex-1"
+                  />
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {players.length > 0 && game.meta.mode === 'teams' ? (
         <div className="rounded-2xl border border-cream/15 bg-white/5 p-4">

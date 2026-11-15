@@ -7,7 +7,13 @@ import { Button, PageShell, TextField } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuestionSet } from '@/hooks/useQuestionSets';
 import { LAST_TRUMPET, ROUND1_LABEL, ROUND2_LABEL } from '@/lib/constants';
-import { setComplete } from '@/lib/question-set';
+import {
+  clueWasDisplayed,
+  lastTrumpetWasDisplayed,
+  setComplete,
+  withoutDisplayedClue,
+  withoutDisplayedLastTrumpet,
+} from '@/lib/question-set';
 import type { QuestionSet, RoundId } from '@/lib/types';
 
 function updateRoundField(
@@ -20,6 +26,7 @@ function updateRoundField(
 ): QuestionSet {
   return {
     ...setData,
+    displayedKeys: withoutDisplayedClue(setData.displayedKeys, round, cat, row),
     [round]: {
       ...setData[round],
       clues: setData[round].clues.map((category, catIndex) =>
@@ -80,6 +87,12 @@ export default function SetEditorPage() {
               You can save a draft at any time. Hosting requires every category, clue, and answer.
             </p>
           )}
+          {(setData.displayedKeys ?? []).length > 0 ? (
+            <p className="text-sm text-gold">
+              Gold “Shown” marks clues opened in a game. Replace those, or keep unmarked clues to reuse.
+              Editing a clue or answer clears its mark.
+            </p>
+          ) : null}
           {message ? <p className="rounded-xl bg-green-900/50 p-3 text-green-100">{message}</p> : null}
           {(['round1', 'round2'] as const).map((round) => (
             <section key={round} className="rounded-2xl border border-cream/15 bg-white/5 p-4">
@@ -113,10 +126,30 @@ export default function SetEditorPage() {
                 {setData[round].clues[0].map((_, row) =>
                   setData[round].categories.map((_, cat) => {
                     const clue = setData[round].clues[cat][row];
+                    const shown = clueWasDisplayed(setData, round, cat, row);
 
                     return (
-                      <div key={`${cat}-${row}`} className="space-y-2 rounded-xl bg-black/20 p-2">
-                        <p className="text-center text-xl font-black text-gold">${setData[round].values[row]}</p>
+                      <div
+                        key={`${cat}-${row}`}
+                        className={`space-y-2 rounded-xl p-2 ${shown ? 'bg-gold/15 ring-1 ring-gold/40' : 'bg-black/20'}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-center text-xl font-black text-gold">${setData[round].values[row]}</p>
+                          {shown ? (
+                            <button
+                              type="button"
+                              className="text-xs font-bold uppercase tracking-wide text-gold hover:text-cream"
+                              onClick={() =>
+                                updateSet((current) => ({
+                                  ...current,
+                                  displayedKeys: withoutDisplayedClue(current.displayedKeys, round, cat, row),
+                                }))
+                              }
+                            >
+                              Shown · clear
+                            </button>
+                          ) : null}
+                        </div>
                         <textarea
                           value={clue.text}
                           onChange={(event) =>
@@ -145,13 +178,30 @@ export default function SetEditorPage() {
             </section>
           ))}
           <section className="rounded-2xl border border-gold/30 bg-white/5 p-4">
-            <h2 className="mb-4 text-3xl font-black text-gold">{LAST_TRUMPET}</h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-3xl font-black text-gold">{LAST_TRUMPET}</h2>
+              {lastTrumpetWasDisplayed(setData) ? (
+                <button
+                  type="button"
+                  className="text-sm font-bold uppercase tracking-wide text-gold hover:text-cream"
+                  onClick={() =>
+                    updateSet((current) => ({
+                      ...current,
+                      displayedKeys: withoutDisplayedLastTrumpet(current.displayedKeys),
+                    }))
+                  }
+                >
+                  Shown in a game · clear
+                </button>
+              ) : null}
+            </div>
             <div className="grid gap-3">
               <TextField
                 value={setData.lastTrumpet.category}
                 onChange={(event) =>
                   updateSet((current) => ({
                     ...current,
+                    displayedKeys: withoutDisplayedLastTrumpet(current.displayedKeys),
                     lastTrumpet: { ...current.lastTrumpet, category: event.target.value },
                   }))
                 }
@@ -162,6 +212,7 @@ export default function SetEditorPage() {
                 onChange={(event) =>
                   updateSet((current) => ({
                     ...current,
+                    displayedKeys: withoutDisplayedLastTrumpet(current.displayedKeys),
                     lastTrumpet: { ...current.lastTrumpet, clue: event.target.value },
                   }))
                 }
@@ -173,6 +224,7 @@ export default function SetEditorPage() {
                 onChange={(event) =>
                   updateSet((current) => ({
                     ...current,
+                    displayedKeys: withoutDisplayedLastTrumpet(current.displayedKeys),
                     lastTrumpet: { ...current.lastTrumpet, answer: event.target.value },
                   }))
                 }

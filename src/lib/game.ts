@@ -21,6 +21,8 @@ import {
   MAX_BUZZ_DELAY_SECONDS,
   MAX_PLAYERS_FFA,
   MAX_PLAYERS_TEAMS,
+  LAST_TRUMPET_DISPLAYED_KEY,
+  MAX_TEAM_NAME_LENGTH,
   MAX_TEAMS,
   MIN_BUZZ_DELAY_SECONDS,
   MIN_PLAYERS,
@@ -36,6 +38,7 @@ import {
 } from './constants';
 import { getFirebaseAuth, getRtdb } from './firebase';
 import { setComplete } from './question-set';
+import { markSetCluesDisplayed } from './sets-api';
 import type {
   Buzz,
   GameMeta,
@@ -100,16 +103,22 @@ export function generateRoomCode(): string {
   ).join('');
 }
 
-function makeTeams(count: number): Record<string, Team> {
+function defaultTeamName(index: number): string {
+  return `Team ${index + 1}`;
+}
+
+function makeTeams(count: number, previous: Record<string, Team> = {}): Record<string, Team> {
   return Object.fromEntries(
     Array.from({ length: count }, (_, index) => {
+      const id = `team${index + 1}`;
       const color = TEAM_COLORS[index % TEAM_COLORS.length];
+      const previousName = previous[id]?.name?.trim();
 
       return [
-        `team${index + 1}`,
+        id,
         {
-          name: `Team ${index + 1}`,
-          color: color.hex,
+          name: previousName || defaultTeamName(index),
+          color: previous[id]?.color || color.hex,
           score: 0,
           memberUids: {},
         },
@@ -161,8 +170,8 @@ function compactOccupiedTeams(game: GameState): {
     const newId = `team${index + 1}`;
     idMap[oldId] = newId;
     teams[newId] = {
-      name: `Team ${index + 1}`,
-      color: TEAM_COLORS[index % TEAM_COLORS.length].hex,
+      name: team.name?.trim() || defaultTeamName(index),
+      color: team.color || TEAM_COLORS[index % TEAM_COLORS.length].hex,
       score: team.score ?? 0,
       memberUids: { ...(team.memberUids ?? {}) },
     };
@@ -376,6 +385,26 @@ function getHighestFaceValue(round: RoundId): number {
 function currentClue(game: GameState): PublicClue {
   if (!game.public.currentClue) throw new Error('No clue is currently active.');
   return game.public.currentClue;
+}
+
+function currentAnswer(game: GameState, clue: PublicClue): string {
+  return game.hostOnly?.answers?.[clue.round]?.[clue.cat]?.[clue.row] ?? '';
+}
+
+export function canStartLastTrumpet(phase: Phase | undefined): boolean {
+  return (
+    phase === 'board' ||
+    phase === 'clue' ||
+    phase === 'buzzOpen' ||
+    phase === 'answering' ||
+    phase === 'doublePortion' ||
+    phase === 'answerRevealed'
+  );
+}
+
+function recordDisplayed(setId: string | undefined, keys: string[]): void {
+  if (!setId) return;
+  void markSetCluesDisplayed(setId, keys).catch(() => undefined);
 }
 
 function assertHost(game: GameState, uid: string): void {
@@ -762,7 +791,7 @@ export async function setLobbyMode(
             },
           ]),
         )
-      : makeTeams(nextTeamCount);
+      : makeTeams(nextTeamCount, game.teams ?? {});
 
     Object.entries(players).forEach(([uid, player]) => {
       player.teamId = mode === 'ffa' ? `player_${uid}` : '';
@@ -834,6 +863,23 @@ export async function setTeamsLocked(code: string, hostId: string, locked: boole
   await update(ref(getRtdb(), gamePath(code, 'meta')), {
     teamsLocked: locked,
     updatedAt: now(),
+  });
+}
+
+export async function setTeamName(code: string, hostId: string, teamId: string, name: string): Promise<void> {
+  const game = await readGame(code);
+  if (!game) throw new Error('Room not found.');
+  assertHost(game, hostId);
+  if (game.meta.phase !== 'lobby') throw new Error('Team names freeze after the game starts.');
+  if (game.meta.mode === 'ffa') throw new Error('Team names are only available in team games.');
+  if (!game.teams?.[teamId]) throw new Error('That team does not exist.');
+
+  const nextName = name.trim().slice(0, MAX_TEAM_NAME_LENGTH);
+  if (!nextName) throw new Error('Enter a team name.');
+
+  await update(ref(getRtdb(), gamePath(code)), {
+    [`teams/${teamId}/name`]: nextName,
+    'meta/updatedAt': now(),
   });
 }
 
@@ -990,6 +1036,8 @@ export async function openCell(
       undo: null,
     };
   });
+  const meta = await readGameChild<GameMeta>(code, 'meta');
+  recordDisplayed(meta?.setId, [cellKey(round, cat, row)]);
   await clearConfer(code);
 }
 
@@ -1076,7 +1124,6 @@ function nextBoardPhase(game: GameState): Phase {
     game.public.controlPlayerId = pickRoundTwoControl(game);
     return 'board';
   }
-  if (allCellsUsed(game, 'round2')) return 'lastTrumpetWager';
   return 'board';
 }
 
@@ -1085,9 +1132,29 @@ export async function revealSkip(code: string, hostId: string): Promise<void> {
     if (!game) throw new Error('Room not found.');
     assertHost(game, hostId);
     const clue = currentClue(game);
+    if (game.meta.phase === 'answerRevealed') return game;
     game.undo = snapshotWith(game, 'revealSkip');
     game.public.used = { ...(game.public.used ?? {}), [cellKey(clue.round, clue.cat, clue.row)]: true };
+    game.public.revealedAnswer = currentAnswer(game, clue);
+    game.public.buzz = null;
+    game.public.buzzOpensAt = null;
+    game.public.lockouts = clearedFlags(game.public.lockouts);
+    game.public.guessed = clearedFlags(game.public.guessed);
+    game.public.doublePortionWager = null;
+    game.meta.phase = 'answerRevealed';
+    game.meta.updatedAt = now();
+    return game;
+  });
+  await clearConfer(code);
+}
+
+export async function dismissRevealedClue(code: string, hostId: string): Promise<void> {
+  await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
+    if (!game) throw new Error('Room not found.');
+    assertHost(game, hostId);
+    if (game.meta.phase !== 'answerRevealed') return game;
     game.public.currentClue = null;
+    game.public.revealedAnswer = null;
     game.public.buzz = null;
     game.public.buzzOpensAt = null;
     game.public.lockouts = clearedFlags(game.public.lockouts);
@@ -1097,7 +1164,6 @@ export async function revealSkip(code: string, hostId: string): Promise<void> {
     game.meta.updatedAt = now();
     return game;
   });
-  await clearConfer(code);
 }
 
 export async function anotherRound(code: string, hostId: string): Promise<void> {
@@ -1225,17 +1291,30 @@ export async function startLastTrumpet(code: string, hostId: string): Promise<vo
   await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
     if (!game) throw new Error('Room not found.');
     assertHost(game, hostId);
+    if (!canStartLastTrumpet(game.meta.phase)) {
+      throw new Error('The Last Trumpet cannot start from this screen.');
+    }
     const eligible = activeTeamIds(game).filter((teamId) => game.teams[teamId].score > 0);
     game.meta.phase = 'lastTrumpetWager';
+    game.public.currentClue = null;
+    game.public.revealedAnswer = null;
+    game.public.buzz = null;
+    game.public.buzzOpensAt = null;
+    game.public.lockouts = clearedFlags(game.public.lockouts);
+    game.public.guessed = clearedFlags(game.public.guessed);
+    game.public.doublePortionWager = null;
     game.public.lastTrumpetLocked = false;
     game.public.revealQueue = [];
     game.public.revealIndex = 0;
     game.lastTrumpet = Object.fromEntries(
       eligible.map((teamId) => [teamId, { wager: 0, answer: '', submittedBy: '' }]),
     );
+    game.undo = null;
     game.meta.updatedAt = now();
     return game;
   });
+  const meta = await readGameChild<GameMeta>(code, 'meta');
+  recordDisplayed(meta?.setId, [LAST_TRUMPET_DISPLAYED_KEY]);
   await clearConfer(code);
 }
 

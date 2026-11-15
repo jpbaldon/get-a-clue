@@ -7,6 +7,7 @@ export type Phase =
   | 'buzzOpen'
   | 'answering'
   | 'doublePortion'
+  | 'answerRevealed'
   | 'lastTrumpetWager'
   | 'lastTrumpetReveal'
   | 'ended';
@@ -37,6 +38,8 @@ export interface QuestionSet {
   round1: RoundData;
   round2: RoundData;
   lastTrumpet: LastTrumpetData;
+  /** Cell keys (`round:cat:row`) plus `lastTrumpet` for clues opened in a live game. */
+  displayedKeys: string[];
 }
 
 export interface PublicClue {

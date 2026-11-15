@@ -1,5 +1,6 @@
 import {
   addDoc,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -7,6 +8,7 @@ import {
   getDocs,
   query,
   setDoc,
+  updateDoc,
   where,
 } from 'firebase/firestore';
 
@@ -72,6 +74,11 @@ function decodeRound(raw: StoredRound | undefined): RoundData {
   };
 }
 
+function displayedKeysFromDoc(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is string => typeof item === 'string' && item.length > 0);
+}
+
 function toFirestore(set: Omit<QuestionSet, 'id'>) {
   return {
     ownerId: set.ownerId,
@@ -80,6 +87,7 @@ function toFirestore(set: Omit<QuestionSet, 'id'>) {
     round1: encodeRound(set.round1),
     round2: encodeRound(set.round2),
     lastTrumpet: set.lastTrumpet,
+    displayedKeys: displayedKeysFromDoc(set.displayedKeys),
   };
 }
 
@@ -96,6 +104,7 @@ function normalizeSet(id: string, data: Record<string, unknown>): QuestionSet {
       clue: String((data.lastTrumpet as LastTrumpetData | undefined)?.clue ?? ''),
       answer: String((data.lastTrumpet as LastTrumpetData | undefined)?.answer ?? ''),
     },
+    displayedKeys: displayedKeysFromDoc(data.displayedKeys),
   };
 }
 
@@ -145,5 +154,15 @@ export async function createSampleSet(ownerId: string): Promise<string> {
     ...SAMPLE_SET,
     ownerId,
     updatedAt: Date.now(),
+    displayedKeys: [],
+  });
+}
+
+export async function markSetCluesDisplayed(setId: string, keys: string[]): Promise<void> {
+  const unique = [...new Set(keys.filter((key) => key.trim()))];
+  if (!setId || unique.length === 0) return;
+
+  await updateDoc(doc(getFs(), COLLECTION, setId), {
+    displayedKeys: arrayUnion(...unique),
   });
 }
