@@ -1,11 +1,13 @@
 'use client';
 
+import { useOpenBuzzingWhenDue } from '@/hooks/useOpenBuzzingWhenDue';
 import { DOUBLE_PORTION, LAST_TRUMPET, ROUND1_LABEL, ROUND2_LABEL } from '@/lib/constants';
-import { openCell, type BoardGameView } from '@/lib/game';
+import { dismissRevealedClue, openCell, type BoardGameView } from '@/lib/game';
 import type { RoundId } from '@/lib/types';
 
 import { Board } from './Board';
 import { BoardLobby } from './BoardLobby';
+import { BuzzOpensIn } from './BuzzOpensIn';
 import { Scoreboard } from './Scoreboard';
 
 interface HostBoardProps {
@@ -20,8 +22,16 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
   const values = round === 'round1' ? game.public?.round1Values : game.public?.round2Values;
   const clue = game.public?.currentClue;
   const phase = game.meta?.phase ?? 'lobby';
+  const buzz = game.public?.buzz;
+  const answeringFromBuzz = Boolean(buzz) && (phase === 'answering' || phase === 'buzzOpen');
+  const answeringPlayerId = answeringFromBuzz ? buzz?.playerId : '';
+  const answeringTeamId = answeringFromBuzz ? buzz?.teamId : '';
+  const answeringPlayer = answeringPlayerId ? game.players[answeringPlayerId] : undefined;
+  const answeringTeam = answeringTeamId ? game.teams[answeringTeamId] : undefined;
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   const joinUrl = origin ? `${origin}/play/${code}` : '';
+
+  useOpenBuzzingWhenDue(code, hostId, phase, game.public?.buzzOpensAt);
 
   const cellOpened = (nextRound: RoundId, cat: number, row: number) => {
     void openCell(code, hostId, nextRound, cat, row);
@@ -76,6 +86,34 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
           </p>
           <h2 className="max-w-5xl text-[clamp(1.5rem,4.5vw,4rem)] font-black leading-tight">{clue.text}</h2>
+          {phase === 'answerRevealed' ? (
+            <p className="mt-6 max-w-5xl text-[clamp(1.5rem,4vw,3.5rem)] font-black leading-tight text-gold">
+              {game.public?.revealedAnswer || ''}
+            </p>
+          ) : null}
+          <BuzzOpensIn
+            phase={phase}
+            buzzOpensAt={game.public?.buzzOpensAt}
+            className="mt-6 shrink-0 text-[clamp(1.25rem,3vw,2.5rem)] font-black leading-tight text-gold"
+          />
+          {answeringFromBuzz ? (
+            <p
+              className="mt-6 shrink-0 text-[clamp(1.25rem,3vw,2.5rem)] font-black leading-tight"
+              style={answeringTeam?.color ? { color: answeringTeam.color } : undefined}
+            >
+              {answeringPlayer?.name ?? 'A contestant'} is answering
+              {answeringTeam?.name ? ` for ${answeringTeam.name}` : ''}
+            </p>
+          ) : null}
+          {phase === 'answerRevealed' ? (
+            <button
+              type="button"
+              onClick={() => void dismissRevealedClue(code, hostId)}
+              className="mt-8 rounded-xl border border-gold bg-gold px-8 py-3 text-2xl font-black text-navy"
+            >
+              Continue
+            </button>
+          ) : null}
         </section>
       ) : null}
 

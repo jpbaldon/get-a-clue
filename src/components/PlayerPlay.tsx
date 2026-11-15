@@ -6,6 +6,7 @@ import { DOUBLE_PORTION, LAST_TRUMPET, WAGER_FLOOR } from '@/lib/constants';
 import { buzz, setDoublePortionWager, submitLastTrumpet } from '@/lib/game';
 import type { PlayerGameView } from '@/lib/game';
 
+import { BuzzOpensIn } from './BuzzOpensIn';
 import { Conferral } from './Conferral';
 import { Scoreboard } from './Scoreboard';
 import { Button, TextField } from './ui';
@@ -24,12 +25,13 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
   const player = game.players[uid];
   const team = player ? game.teams[player.teamId] : null;
   const isControl = game.public?.controlPlayerId === uid;
-  const teamLocked = Boolean(player?.teamId && game.public?.lockouts?.[player.teamId]);
+  const teamLocked = Boolean(player?.teamId && game.public?.lockouts?.[player.teamId] === true);
   const canBuzz = game.meta?.phase === 'buzzOpen' && !teamLocked && !game.public?.buzz;
   const showConferral =
     Boolean(player?.teamId) &&
     game.meta?.mode === 'teams' &&
-    (Boolean(clue) || game.meta?.phase === 'lastTrumpetWager');
+    (Boolean(clue) || game.meta?.phase === 'lastTrumpetWager') &&
+    game.meta?.phase !== 'answerRevealed';
   const isAnswering = game.meta?.phase === 'answering' || (game.meta?.phase === 'buzzOpen' && Boolean(game.public?.buzz));
   const conferralPaused = Boolean(player?.teamId && game.public?.buzz?.teamId === player.teamId);
 
@@ -71,6 +73,15 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
           </p>
           <h2 className="mb-6 text-4xl font-black">{clue.text}</h2>
+          {game.meta?.phase === 'answerRevealed' ? (
+            <p className="mb-6 text-3xl font-black text-gold">{game.public?.revealedAnswer || ''}</p>
+          ) : null}
+
+          <BuzzOpensIn
+            phase={game.meta?.phase}
+            buzzOpensAt={game.public?.buzzOpensAt}
+            className="mb-6 text-2xl font-black text-gold"
+          />
 
           {game.meta?.phase === 'buzzOpen' && !game.public?.buzz ? (
             <Button

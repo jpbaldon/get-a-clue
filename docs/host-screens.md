@@ -8,13 +8,13 @@ Anything contestants must not know yet **must not be rendered on the board scree
 
 That includes:
 
-- Clue answers
+- Clue answers, until the host uses Reveal/skip (then `public.revealedAnswer` is shown with the clue)
 - The Last Trumpet answer before the host reveals a team
 - Which cells are Double Portion, until that cell is opened (then it is public)
-- Host judging controls (Correct / Incorrect / Reveal / Undo / Open buzzing / buzz-on-reveal)
+- Host judging controls (Correct / Incorrect / Reveal / Undo / Open buzzing / buzz-on-reveal / buzz-after-delay)
 - Host-only data from `hostOnly` (answers, Double Portion map)
 
-The board client must not fetch the question set from Firestore and must not subscribe to `hostOnly`. Use the public/player child listeners only (`meta`, `public`, `players`, `teams`). Opening a cell from the board may write via a host transaction; do not render answers or unused Double Portion marks.
+The board client must not fetch the question set from Firestore and must not subscribe to `hostOnly`. Use the public/player child listeners only (`meta`, `public`, `players`, `teams`). Opening a cell from the board may write via a host transaction; do not render unused Double Portion marks. After Reveal/skip, the board may render `public.revealedAnswer`. The host dismisses that view (Continue on the board, or Back to board on controls) to return to the grid.
 
 ## Two host devices (required)
 
@@ -22,12 +22,12 @@ The same Google host signs in on **two different browsers/devices** (`localStora
 
 | Device | Route | Role |
 |--------|--------|------|
-| Shared display | `/host/[code]/board` | Public lobby, then the board. Fits one viewport. Host may click cells. Never render answers. |
+| Shared display | `/host/[code]/board` | Public lobby, then the board. Fits one viewport. Host may click cells. Never render unrevealed answers. |
 | Controls | `/host/[code]/control` | Answers, judging, lobby settings, and the same cell picker. |
 
 `/host/[code]` is pairing: copy both URLs, claim one role per device. Do not start the game until both roles have fresh heartbeats from different device ids.
 
-Cell clicks are allowed on **both** host screens. The board still must not render answers or unused Double Portion marks.
+Cell clicks are allowed on **both** host screens. The board still must not render unrevealed answers or unused Double Portion marks.
 
 ## Double Portion
 
@@ -35,4 +35,4 @@ Hosts do not choose Double Portion cells in the set editor. At game start (and P
 
 ## Board layout
 
-The Discord board must show the **entire** 6×5 grid (plus category headers) in the viewport without page scroll. In the lobby it shows the room code and contestant teams. Prefer `dvh` + a filling CSS grid. Compact scores. When a clue is open, replace the grid with the public clue (and Double Portion label only if this clue is one).
+The Discord board must show the **entire** 6×5 grid (plus category headers) in the viewport without page scroll. In the lobby it shows the room code and contestant teams. Prefer `dvh` + a filling CSS grid. Compact scores. When a clue is open, replace the grid with the public clue (and Double Portion label only if this clue is one). When the host reveals the answer, keep that clue up and show the public answer until the host continues.

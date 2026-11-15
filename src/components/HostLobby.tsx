@@ -2,9 +2,11 @@
 
 import { useState } from 'react';
 
-import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnReveal, setLobbyMode, setMaxPlayers, startGame } from '@/lib/game';
+import { MAX_PLAYERS_TEAMS, MAX_TEAM_NAME_LENGTH, MIN_PLAYERS } from '@/lib/constants';
+import { assignPlayerTeam, autoBalanceTeams, hostDevicesReady, setBuzzOnDelay, setBuzzOnReveal, setLobbyMode, setMaxPlayers, setTeamName, setTeamsLocked, startGame, teamsAreLocked } from '@/lib/game';
 import type { GameMode, GameState } from '@/lib/types';
 
+import { BuzzRevealSettings } from './BuzzRevealSettings';
 import { Button, TextField } from './ui';
 
 interface HostLobbyProps {
@@ -58,26 +60,40 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
         <label className="mb-2 block text-sm font-bold">Join cap</label>
         <TextField
           type="number"
-          min={2}
-          max={24}
+          min={MIN_PLAYERS}
+          max={MAX_PLAYERS_TEAMS}
           value={cap}
           onChange={(event) => setCap(Number(event.target.value))}
           className="mb-4 w-full"
         />
-        <label
-          className="mb-4 flex cursor-pointer items-center gap-2 text-sm font-bold"
-          title="Regular clues open buzzing immediately. Double Portion still waits for a wager."
-        >
-          <input
-            type="checkbox"
-            checked={Boolean(game.meta.buzzOnReveal)}
-            onChange={(event) => void run(() => setBuzzOnReveal(code, hostId, event.target.checked))}
-            className="size-4 accent-gold"
+        <div className="mb-4">
+          <BuzzRevealSettings
+            buzzOnReveal={Boolean(game.meta.buzzOnReveal)}
+            buzzOnDelay={Boolean(game.meta.buzzOnDelay)}
+            delaySeconds={game.meta.buzzDelaySeconds}
+            onBuzzOnReveal={(enabled) => void run(() => setBuzzOnReveal(code, hostId, enabled))}
+            onBuzzOnDelay={(enabled, seconds) => void run(() => setBuzzOnDelay(code, hostId, enabled, seconds))}
           />
-          Open buzzing when clues are revealed
-        </label>
+        </div>
+        {game.meta.mode === 'teams' ? (
+          <label
+            className="mb-4 flex cursor-pointer items-center gap-2 text-sm font-bold"
+            title="Contestants cannot switch teams. You can still move them or auto-balance."
+          >
+            <input
+              type="checkbox"
+              checked={teamsAreLocked(game.meta)}
+              onChange={(event) => void run(() => setTeamsLocked(code, hostId, event.target.checked))}
+              className="size-4 accent-gold"
+            />
+            Lock players into teams
+          </label>
+        ) : null}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void run(() => setLobbyMode(code, hostId, mode, teamCount))}>
+          <Button
+            title="Applying settings rebuilds teams and lets contestants pick again."
+            onClick={() => void run(() => setLobbyMode(code, hostId, mode, teamCount))}
+          >
             Apply lobby settings
           </Button>
           <Button variant="secondary" onClick={() => void run(() => setMaxPlayers(code, hostId, cap))}>
@@ -98,9 +114,51 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
         {error ? <p className="mt-3 text-red-200">{error}</p> : null}
       </div>
 
+      {game.meta.mode === 'teams' ? (
+        <div className="rounded-2xl border border-cream/15 bg-white/5 p-4">
+          <h4 className="mb-1 font-black text-gold">Team names</h4>
+          <p className="mb-3 text-sm text-cream/70">Names show on the board lobby and scoreboard.</p>
+          <ul className="max-w-md space-y-2">
+            {Object.entries(game.teams ?? {}).map(([teamId, team]) => (
+              <li key={teamId}>
+                <label className="flex items-center gap-3 text-sm">
+                  <span
+                    className="size-4 shrink-0 rounded-full"
+                    style={{ background: team.color }}
+                    aria-hidden
+                  />
+                  <TextField
+                    defaultValue={team.name}
+                    maxLength={MAX_TEAM_NAME_LENGTH}
+                    key={`${teamId}-${team.name}`}
+                    onBlur={(event) => {
+                      const next = event.target.value.trim();
+                      if (!next) {
+                        event.target.value = team.name;
+                        return;
+                      }
+                      if (next === team.name) return;
+                      void run(() => setTeamName(code, hostId, teamId, next));
+                    }}
+                    className="min-w-0 flex-1"
+                  />
+                </label>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {players.length > 0 && game.meta.mode === 'teams' ? (
         <div className="rounded-2xl border border-cream/15 bg-white/5 p-4">
-          <h4 className="mb-3 font-black text-gold">Move players</h4>
+          <h4 className="mb-1 font-black text-gold">Move players</h4>
+          {teamsAreLocked(game.meta) ? (
+            <p className="mb-3 text-sm text-cream/70">
+              Teams are locked. Contestants cannot switch. You can still move them.
+            </p>
+          ) : (
+            <p className="mb-3 text-sm text-cream/70">Contestants can still pick a team until you lock them.</p>
+          )}
           <ul className="max-w-md space-y-2">
             {players.map(([uid, player]) => (
               <li key={uid}>
@@ -108,9 +166,14 @@ export function HostLobby({ code, hostId, game }: HostLobbyProps) {
                   <span className="w-36 shrink-0 truncate font-bold">{player.name}</span>
                   <select
                     value={player.teamId}
-                    onChange={(event) => void assignPlayerTeam(code, uid, event.target.value)}
+                    onChange={(event) => void run(() => assignPlayerTeam(code, uid, event.target.value))}
                     className="min-w-0 flex-1 rounded-lg border border-cream/30 bg-navy-2 px-2 py-1"
                   >
+                    {!player.teamId ? (
+                      <option value="" disabled>
+                        Unassigned
+                      </option>
+                    ) : null}
                     {Object.entries(game.teams ?? {}).map(([teamId, team]) => (
                       <option key={teamId} value={teamId}>
                         {team.name}

@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from 'react';
 
+import { useOpenBuzzingWhenDue } from '@/hooks/useOpenBuzzingWhenDue';
+import { CATEGORY_COUNT, DOUBLE_PORTION, LAST_TRUMPET, ROW_COUNT } from '@/lib/constants';
 import {
   acknowledgeBuzz,
   anotherRound,
+  canStartLastTrumpet,
+  dismissRevealedClue,
   endGame,
   judgeBuzz,
   judgeDoublePortion,
@@ -12,16 +16,18 @@ import {
   lockLastTrumpetAnswers,
   openBuzzing,
   openCell,
-  setBuzzOnReveal,
   playAgain,
   revealSkip,
+  setBuzzOnDelay,
+  setBuzzOnReveal,
   startLastTrumpet,
   undoLast,
 } from '@/lib/game';
-import { DOUBLE_PORTION, LAST_TRUMPET } from '@/lib/constants';
 import type { GameState, QuestionSet, RoundId } from '@/lib/types';
 
 import { Board } from './Board';
+import { BuzzOpensIn } from './BuzzOpensIn';
+import { BuzzRevealSettings } from './BuzzRevealSettings';
 import { Scoreboard } from './Scoreboard';
 import { Button } from './ui';
 
@@ -34,20 +40,26 @@ interface HostControlProps {
 
 export function HostControl({ code, hostId, game, setData }: HostControlProps) {
   const [confirmEnd, setConfirmEnd] = useState(false);
+  const [confirmLastTrumpet, setConfirmLastTrumpet] = useState(false);
   const clue = game.public.currentClue;
   const buzz = game.public.buzz;
   const answer = clue ? game.hostOnly?.answers[clue.round][clue.cat][clue.row] : '';
-  const activeTeamIds = Object.entries(game.teams).filter(([, team]) => Object.keys(team.memberUids ?? {}).length > 0);
+  const revealed = game.meta.phase === 'answerRevealed';
+  const activeTeamIds = Object.entries(game.teams).filter(([, team]) => team && Object.keys(team.memberUids ?? {}).length > 0);
   const everyTeamGuessed = activeTeamIds.every(([teamId]) => game.public.guessed?.[teamId]);
   const round = game.meta.round;
   const categories = round === 'round1' ? game.public.round1Categories : game.public.round2Categories;
   const values = round === 'round1' ? game.public.round1Values : game.public.round2Values;
+  const usedCount = Object.values(game.public.used ?? {}).filter(Boolean).length;
+  const unusedCount = CATEGORY_COUNT * ROW_COUNT * 2 - usedCount;
 
   useEffect(() => {
     if (game.meta.phase === 'buzzOpen' && buzz) {
       void acknowledgeBuzz(code, hostId);
     }
   }, [buzz, code, game.meta.phase, hostId]);
+
+  useOpenBuzzingWhenDue(code, hostId, game.meta.phase, game.public.buzzOpensAt);
 
   const cellOpened = (nextRound: RoundId, cat: number, row: number) => {
     void openCell(code, hostId, nextRound, cat, row, setData);
@@ -56,7 +68,7 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
   return (
     <div className="space-y-5">
       <p className="text-sm text-cream/70">
-        Host controls. Answers stay on this screen. Share the board screen, not this one.
+        Host controls. Keep this screen private until you reveal an answer. Share the board, not this one.
       </p>
       <Scoreboard teams={game.teams} players={game.players} controlPlayerId={game.public.controlPlayerId} />
       <section className="rounded-2xl border border-cream/15 bg-white/5 p-4">
@@ -68,21 +80,21 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <label
-              className="flex cursor-pointer items-center gap-2 text-sm font-bold"
-              title="Regular clues open buzzing immediately. Double Portion still waits for a wager."
-            >
-              <input
-                type="checkbox"
-                checked={Boolean(game.meta.buzzOnReveal)}
-                onChange={(event) => void setBuzzOnReveal(code, hostId, event.target.checked)}
-                className="size-4 accent-gold"
-              />
-              Open buzzing when clues are revealed
-            </label>
+            <BuzzRevealSettings
+              buzzOnReveal={Boolean(game.meta.buzzOnReveal)}
+              buzzOnDelay={Boolean(game.meta.buzzOnDelay)}
+              delaySeconds={game.meta.buzzDelaySeconds}
+              onBuzzOnReveal={(enabled) => void setBuzzOnReveal(code, hostId, enabled)}
+              onBuzzOnDelay={(enabled, seconds) => void setBuzzOnDelay(code, hostId, enabled, seconds)}
+            />
             <Button variant="secondary" disabled={!game.undo} onClick={() => void undoLast(code, hostId)}>
               Undo
             </Button>
+            {canStartLastTrumpet(game.meta.phase) ? (
+              <Button variant="secondary" onClick={() => setConfirmLastTrumpet(true)}>
+                Start {LAST_TRUMPET}
+              </Button>
+            ) : null}
             <Button variant="danger" onClick={() => setConfirmEnd(true)}>
               End game
             </Button>
@@ -107,15 +119,28 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
           </p>
           <h2 className="mb-5 text-4xl font-black">{clue.text}</h2>
-          <p className="mb-5 rounded-xl bg-black/30 p-3 text-xl text-gold">Answer: {answer}</p>
+          <p className="mb-5 rounded-xl bg-black/30 p-3 text-xl text-gold">
+            Answer: {revealed ? game.public.revealedAnswer || answer : answer}
+          </p>
           <div className="flex flex-wrap justify-center gap-2">
-            {game.meta.phase === 'clue' ? (
+            {revealed ? (
+              <>
+                <p className="w-full text-lg text-cream/80">The answer is on the shared board.</p>
+                <Button onClick={() => void dismissRevealedClue(code, hostId)}>Back to board</Button>
+              </>
+            ) : null}
+            {!revealed && (game.meta.phase === 'clue' || (game.meta.phase === 'answering' && !buzz)) ? (
               <Button onClick={() => void openBuzzing(code, hostId)}>Open buzzing</Button>
             ) : null}
+            <BuzzOpensIn
+              phase={game.meta.phase}
+              buzzOpensAt={game.public.buzzOpensAt}
+              className="w-full text-lg text-cream/80"
+            />
             {game.meta.phase === 'buzzOpen' && !buzz ? (
               <p className="w-full text-lg text-cream/80">Buzzing is open.</p>
             ) : null}
-            {(game.meta.phase === 'answering' || game.meta.phase === 'buzzOpen') && buzz ? (
+            {!revealed && (game.meta.phase === 'answering' || game.meta.phase === 'buzzOpen') && buzz ? (
               <>
                 <p className="w-full text-lg text-cream/80">
                   Answering: {game.teams[buzz.teamId]?.name} via {game.players[buzz.playerId]?.name}
@@ -143,16 +168,20 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
                 </Button>
               </>
             ) : null}
-            <Button variant="secondary" onClick={() => void revealSkip(code, hostId)}>
-              Reveal/skip
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={game.meta.mode === 'ffa' || !everyTeamGuessed}
-              onClick={() => void anotherRound(code, hostId)}
-            >
-              Another round
-            </Button>
+            {!revealed ? (
+              <>
+                <Button variant="secondary" onClick={() => void revealSkip(code, hostId)}>
+                  Reveal/skip
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={game.meta.mode === 'ffa' || !everyTeamGuessed}
+                  onClick={() => void anotherRound(code, hostId)}
+                >
+                  Another round
+                </Button>
+              </>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -198,6 +227,33 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
         </section>
       ) : null}
 
+      {confirmLastTrumpet ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-gold/30 bg-navy p-6 text-center shadow-2xl">
+            <h2 className="mb-2 text-2xl font-black text-gold">Start {LAST_TRUMPET}?</h2>
+            <p className="mb-5 text-cream/80">
+              {unusedCount > 0
+                ? `${unusedCount} clue${unusedCount === 1 ? ' was' : 's were'} never opened and can be reused in this set.`
+                : 'Every regular clue has been opened.'}
+              {clue && !revealed ? ' The current clue will close without showing the answer on the board.' : ''}
+            </p>
+            <div className="flex justify-center gap-2">
+              <Button variant="secondary" onClick={() => setConfirmLastTrumpet(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setConfirmLastTrumpet(false);
+                  void startLastTrumpet(code, hostId);
+                }}
+              >
+                Start {LAST_TRUMPET}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {confirmEnd ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-md rounded-2xl border border-gold/30 bg-navy p-6 text-center shadow-2xl">
@@ -219,10 +275,6 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
             </div>
           </div>
         </div>
-      ) : null}
-
-      {game.meta.phase === 'board' && Object.keys(game.public.used ?? {}).length >= 60 ? (
-        <Button onClick={() => void startLastTrumpet(code, hostId)}>Start {LAST_TRUMPET}</Button>
       ) : null}
     </div>
   );

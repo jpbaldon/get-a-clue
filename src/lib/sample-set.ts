@@ -125,4 +125,5 @@ export const SAMPLE_SET: QuestionSet = {
     clue: 'Jesus sent his disciples to make disciples of all nations in this closing chapter of Matthew.',
     answer: 'What is Matthew 28?',
   },
+  displayedKeys: [],
 };

@@ -7,6 +7,7 @@ export type Phase =
   | 'buzzOpen'
   | 'answering'
   | 'doublePortion'
+  | 'answerRevealed'
   | 'lastTrumpetWager'
   | 'lastTrumpetReveal'
   | 'ended';
@@ -37,6 +38,8 @@ export interface QuestionSet {
   round1: RoundData;
   round2: RoundData;
   lastTrumpet: LastTrumpetData;
+  /** Cell keys (`round:cat:row`) plus `lastTrumpet` for clues opened in a live game. */
+  displayedKeys: string[];
 }
 
 export interface PublicClue {
@@ -96,6 +99,11 @@ export interface GameMeta {
   mode: GameMode;
   teamCount: number;
   buzzOnReveal: boolean;
+  /** Regular clues wait this many whole seconds, then buzzing opens. Ignored if buzzOnReveal is on. */
+  buzzOnDelay: boolean;
+  buzzDelaySeconds: number;
+  /** Lobby: contestants cannot change teams. Host and auto-balance still can. */
+  teamsLocked: boolean;
   updatedAt: number;
   createdAt: number;
 }
@@ -105,6 +113,8 @@ export interface GamePublic {
   currentClue: PublicClue | null;
   controlPlayerId: string;
   buzz: Buzz | null;
+  /** Epoch ms when delayed buzzing should open. Null if no delay is running. */
+  buzzOpensAt: number | null;
   lockouts: Record<string, boolean>;
   guessed: Record<string, boolean>;
   doublePortionWager: number | null;

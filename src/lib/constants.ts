@@ -10,12 +10,14 @@ export const ROUND1_VALUES = [200, 400, 600, 800, 1000] as const;
 export const ROUND2_VALUES = [400, 800, 1200, 1600, 2000] as const;
 
 export const MIN_PLAYERS = 2;
-export const MAX_PLAYERS_TEAMS = 24;
+export const MAX_PLAYERS_TEAMS = 36;
 export const MAX_PLAYERS_FFA = 6;
 export const MIN_TEAMS = 2;
 export const MAX_TEAMS = 6;
 export const DEFAULT_TEAM_COUNT = 3;
-export const DEFAULT_MAX_PLAYERS = 24;
+export const MAX_TEAM_NAME_LENGTH = 32;
+export const LAST_TRUMPET_DISPLAYED_KEY = 'lastTrumpet';
+export const DEFAULT_MAX_PLAYERS = 36;
 
 export const ROOM_CODE_LENGTH = 6;
 export const ROOM_CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -29,6 +31,10 @@ export const DEVICE_ID_STORAGE_KEY = 'get-a-clue-device-id';
 
 export const STALE_MS = 24 * 60 * 60 * 1000;
 export const WAGER_FLOOR = 5;
+
+export const MIN_BUZZ_DELAY_SECONDS = 1;
+export const MAX_BUZZ_DELAY_SECONDS = 30;
+export const DEFAULT_BUZZ_DELAY_SECONDS = 5;
 
 export const TEAM_COLORS = [
   { id: '0', name: 'Blue', hex: '#3b82f6' },
