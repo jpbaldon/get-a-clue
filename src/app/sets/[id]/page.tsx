@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button, PageShell, TextField } from '@/components/ui';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +15,8 @@ import {
   withoutDisplayedLastTrumpet,
 } from '@/lib/question-set';
 import type { QuestionSet, RoundId } from '@/lib/types';
+
+const SAVE_BANNER_MS = 4000;
 
 function updateRoundField(
   setData: QuestionSet,
@@ -44,6 +46,13 @@ export default function SetEditorPage() {
   const { user } = useAuth();
   const { setData, setSetData, loading, saveSet } = useQuestionSet(params.id);
   const [message, setMessage] = useState('');
+  const [savedAt, setSavedAt] = useState(0);
+
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(() => setMessage(''), SAVE_BANNER_MS);
+    return () => window.clearTimeout(timer);
+  }, [message, savedAt]);
 
   const updateSet = (updater: (setData: QuestionSet) => QuestionSet) => {
     if (!setData) return;
@@ -58,6 +67,7 @@ export default function SetEditorPage() {
         ? 'Saved.'
         : 'Saved draft. Fill every clue and answer before hosting.',
     );
+    setSavedAt(Date.now());
     router.replace(`/sets/${id}`);
   };
 
@@ -93,7 +103,11 @@ export default function SetEditorPage() {
               Editing a clue or answer clears its mark.
             </p>
           ) : null}
-          {message ? <p className="rounded-xl bg-green-900/50 p-3 text-green-100">{message}</p> : null}
+          {message ? (
+            <p role="status" className="rounded-xl bg-green-900/50 p-3 text-green-100">
+              {message}
+            </p>
+          ) : null}
           {(['round1', 'round2'] as const).map((round) => (
             <section key={round} className="rounded-2xl border border-cream/15 bg-white/5 p-4">
               <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
