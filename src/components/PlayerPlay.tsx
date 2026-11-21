@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import { DOUBLE_PORTION, LAST_TRUMPET, WAGER_FLOOR } from '@/lib/constants';
-import { buzz, setDoublePortionWager, submitLastTrumpet } from '@/lib/game';
+import { buzz, setDoublePortionWager, submitLastTrumpetAnswer, submitLastTrumpetWager } from '@/lib/game';
 import type { PlayerGameView } from '@/lib/game';
 
 import { BuzzOpensIn } from './BuzzOpensIn';
@@ -30,7 +30,7 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
   const showConferral =
     Boolean(player?.teamId) &&
     game.meta?.mode === 'teams' &&
-    (Boolean(clue) || game.meta?.phase === 'lastTrumpetWager') &&
+    (Boolean(clue) || game.meta?.phase === 'lastTrumpetWager' || game.meta?.phase === 'lastTrumpetAnswer') &&
     game.meta?.phase !== 'answerRevealed';
   const isAnswering = game.meta?.phase === 'answering' || (game.meta?.phase === 'buzzOpen' && Boolean(game.public?.buzz));
   const conferralPaused = Boolean(player?.teamId && game.public?.buzz?.teamId === player.teamId);
@@ -138,14 +138,18 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
         />
       ) : null}
 
-      {game.meta?.phase === 'lastTrumpetWager' ? (
+      {game.meta?.phase === 'lastTrumpetWager' || game.meta?.phase === 'lastTrumpetAnswer' ? (
         <section className="rounded-2xl border border-gold/30 bg-white/5 p-6">
           <h2 className="mb-2 text-3xl font-black text-gold">{LAST_TRUMPET}</h2>
           <p className="mb-2 text-xl">{game.public?.lastTrumpetCategory}</p>
-          <p className="mb-4 text-3xl font-black">{game.public?.lastTrumpetClue}</p>
+          {game.meta.phase === 'lastTrumpetAnswer' ? (
+            <p className="mb-4 text-3xl font-black">{game.public?.lastTrumpetClue}</p>
+          ) : (
+            <p className="mb-4 text-cream/80">Set your wager from the category. The clue is revealed after wagers lock.</p>
+          )}
           {(team?.score ?? 0) <= 0 ? (
             <p>Your team sits out because its score is not above zero.</p>
-          ) : (
+          ) : game.meta.phase === 'lastTrumpetWager' ? (
             <div className="space-y-3">
               <TextField
                 type="number"
@@ -155,19 +159,33 @@ export function PlayerPlay({ code, uid, game }: PlayerPlayProps) {
                 onChange={(event) => setWager(Number(event.target.value))}
                 className="w-full"
               />
+              <Button onClick={() => void run(() => submitLastTrumpetWager(code, uid, wager))}>
+                Submit wager
+              </Button>
+              {game.myLastTrumpet?.wagerBy ? (
+                <p className="text-sm text-cream/70">
+                  Submitted wager ${game.myLastTrumpet.wager} by{' '}
+                  {game.players[game.myLastTrumpet.wagerBy]?.name ?? 'teammate'}.
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-xl font-black text-gold">
+                Locked wager: ${game.myLastTrumpet?.wager ?? 0}
+              </p>
               <TextField
                 value={answer}
                 onChange={(event) => setAnswer(event.target.value)}
                 placeholder="Your answer"
                 className="w-full"
               />
-              <Button onClick={() => void run(() => submitLastTrumpet(code, uid, wager, answer))}>
-                Submit
+              <Button onClick={() => void run(() => submitLastTrumpetAnswer(code, uid, answer))}>
+                Submit answer
               </Button>
-              {game.myLastTrumpet ? (
+              {game.myLastTrumpet?.answerBy ? (
                 <p className="text-sm text-cream/70">
-                  Submitted wager ${game.myLastTrumpet.wager} by{' '}
-                  {game.players[game.myLastTrumpet.submittedBy]?.name ?? 'teammate'}.
+                  Answer submitted by {game.players[game.myLastTrumpet.answerBy]?.name ?? 'teammate'}.
                 </p>
               ) : null}
             </div>

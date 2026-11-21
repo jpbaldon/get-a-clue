@@ -205,7 +205,9 @@ function makeHostOnly(set: QuestionSet, doublePortion: Record<string, boolean> =
     clues: {
       round1: set.round1.clues.map((category) => category.map((clue) => clue.text)),
       round2: set.round2.clues.map((category) => category.map((clue) => clue.text)),
+      lastTrumpet: set.lastTrumpet.clue,
     },
+    lastTrumpetCategory: set.lastTrumpet.category,
     doublePortion,
   };
 }
@@ -220,8 +222,8 @@ function makePublic(set: QuestionSet): GamePublic {
     lockouts: {},
     guessed: {},
     doublePortionWager: null,
-    lastTrumpetCategory: set.lastTrumpet.category,
-    lastTrumpetClue: set.lastTrumpet.clue,
+    lastTrumpetCategory: null,
+    lastTrumpetClue: null,
     lastTrumpetLocked: false,
     revealedAnswer: null,
     revealQueue: [],
@@ -400,6 +402,22 @@ export function canStartLastTrumpet(phase: Phase | undefined): boolean {
     phase === 'doublePortion' ||
     phase === 'answerRevealed'
   );
+}
+
+export function isLastTrumpetPhase(phase: Phase | undefined): boolean {
+  return phase === 'lastTrumpetWager' || phase === 'lastTrumpetAnswer' || phase === 'lastTrumpetReveal';
+}
+
+function emptyLastTrumpetSubmit(): LastTrumpetSubmit {
+  return { wager: 0, answer: '', wagerBy: '', answerBy: '' };
+}
+
+function lastTrumpetClueText(game: GameState, fallback = ''): string {
+  return game.hostOnly?.clues?.lastTrumpet || fallback;
+}
+
+function lastTrumpetCategoryText(game: GameState, fallback = ''): string {
+  return game.hostOnly?.lastTrumpetCategory || game.public.lastTrumpetCategory || fallback;
 }
 
 function recordDisplayed(setId: string | undefined, keys: string[]): void {
@@ -970,7 +988,8 @@ export async function startGame(code: string, hostId: string): Promise<void> {
       },
       hostOnly: {
         answers: game.hostOnly?.answers ?? { round1: [], round2: [], lastTrumpet: '' },
-        clues: game.hostOnly?.clues ?? { round1: [], round2: [] },
+        clues: game.hostOnly?.clues ?? { round1: [], round2: [], lastTrumpet: '' },
+        lastTrumpetCategory: game.hostOnly?.lastTrumpetCategory ?? '',
         doublePortion,
       },
     };
@@ -1287,12 +1306,22 @@ export async function upvoteProposal(code: string, uid: string, proposalUid: str
   await set(ref(getRtdb(), conferRoot(code, `${teamId}/${proposalUid}/voteUids/${uid}`)), true);
 }
 
-export async function startLastTrumpet(code: string, hostId: string): Promise<void> {
+export async function startLastTrumpet(
+  code: string,
+  hostId: string,
+  lastTrumpet?: { category: string; clue: string },
+): Promise<void> {
   await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
     if (!game) throw new Error('Room not found.');
     assertHost(game, hostId);
     if (!canStartLastTrumpet(game.meta.phase)) {
       throw new Error('The Last Trumpet cannot start from this screen.');
+    }
+    const category = lastTrumpet?.category || lastTrumpetCategoryText(game);
+    const clue = lastTrumpet?.clue || lastTrumpetClueText(game);
+    if (game.hostOnly) {
+      game.hostOnly.lastTrumpetCategory = category;
+      game.hostOnly.clues = { ...game.hostOnly.clues, lastTrumpet: clue };
     }
     const eligible = activeTeamIds(game).filter((teamId) => game.teams[teamId].score > 0);
     game.meta.phase = 'lastTrumpetWager';
@@ -1303,11 +1332,13 @@ export async function startLastTrumpet(code: string, hostId: string): Promise<vo
     game.public.lockouts = clearedFlags(game.public.lockouts);
     game.public.guessed = clearedFlags(game.public.guessed);
     game.public.doublePortionWager = null;
+    game.public.lastTrumpetCategory = category;
+    game.public.lastTrumpetClue = null;
     game.public.lastTrumpetLocked = false;
     game.public.revealQueue = [];
     game.public.revealIndex = 0;
     game.lastTrumpet = Object.fromEntries(
-      eligible.map((teamId) => [teamId, { wager: 0, answer: '', submittedBy: '' }]),
+      eligible.map((teamId) => [teamId, emptyLastTrumpetSubmit()]),
     );
     game.undo = null;
     game.meta.updatedAt = now();
@@ -1318,33 +1349,69 @@ export async function startLastTrumpet(code: string, hostId: string): Promise<vo
   await clearConfer(code);
 }
 
-export async function submitLastTrumpet(
-  code: string,
-  uid: string,
-  wager: number,
-  answer: string,
-): Promise<void> {
+async function readEligibleLastTrumpetTeam(code: string, uid: string): Promise<{ teamId: string; max: number }> {
   const [meta, player] = await Promise.all([
     readGameChild<GameMeta>(code, 'meta'),
     readPlayer(code, uid),
   ]);
   if (!meta) throw new Error('Room not found.');
-  if (meta.phase !== 'lastTrumpetWager') throw new Error('The Last Trumpet is not accepting answers.');
   if (!player.teamId) throw new Error('Player is not on a team.');
   const team = await readGameChild<Team>(code, `teams/${player.teamId}`);
   const max = Math.max(0, team?.score ?? 0);
   if (max <= 0) throw new Error('This team sits out The Last Trumpet.');
-  await set(ref(getRtdb(), gamePath(code, `lastTrumpet/${player.teamId}`)), {
+  return { teamId: player.teamId, max };
+}
+
+export async function submitLastTrumpetWager(code: string, uid: string, wager: number): Promise<void> {
+  const [meta, { teamId, max }] = await Promise.all([
+    readGameChild<GameMeta>(code, 'meta'),
+    readEligibleLastTrumpetTeam(code, uid),
+  ]);
+  if (!meta) throw new Error('Room not found.');
+  if (meta.phase !== 'lastTrumpetWager') throw new Error('Wagers are locked.');
+  await update(ref(getRtdb(), gamePath(code, `lastTrumpet/${teamId}`)), {
     wager: clamp(Math.floor(wager), 0, max),
-    answer,
-    submittedBy: uid,
+    wagerBy: uid,
   });
+}
+
+export async function submitLastTrumpetAnswer(code: string, uid: string, answer: string): Promise<void> {
+  const [meta, { teamId }] = await Promise.all([
+    readGameChild<GameMeta>(code, 'meta'),
+    readEligibleLastTrumpetTeam(code, uid),
+  ]);
+  if (!meta) throw new Error('Room not found.');
+  if (meta.phase !== 'lastTrumpetAnswer') throw new Error('The Last Trumpet is not accepting answers.');
+  await update(ref(getRtdb(), gamePath(code, `lastTrumpet/${teamId}`)), {
+    answer,
+    answerBy: uid,
+  });
+}
+
+export async function lockLastTrumpetWagers(code: string, hostId: string, clueFallback = ''): Promise<void> {
+  await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
+    if (!game) throw new Error('Room not found.');
+    assertHost(game, hostId);
+    if (game.meta.phase !== 'lastTrumpetWager') {
+      throw new Error('Wagers are not open.');
+    }
+    const clue = lastTrumpetClueText(game, clueFallback);
+    if (!clue) throw new Error('The Last Trumpet clue is missing.');
+    game.meta.phase = 'lastTrumpetAnswer';
+    game.public.lastTrumpetClue = clue;
+    game.meta.updatedAt = now();
+    return game;
+  });
+  await clearConfer(code);
 }
 
 export async function lockLastTrumpetAnswers(code: string, hostId: string): Promise<void> {
   await runTransaction(ref(getRtdb(), gamePath(code)), (game: GameState | null) => {
     if (!game) throw new Error('Room not found.');
     assertHost(game, hostId);
+    if (game.meta.phase !== 'lastTrumpetAnswer') {
+      throw new Error('Lock wagers before locking answers.');
+    }
     const queue: RevealEntry[] = activeTeamIds(game)
       .filter((teamId) => game.teams[teamId].score > 0)
       .sort((a, b) => game.teams[a].score - game.teams[b].score)
@@ -1414,6 +1481,8 @@ export async function playAgain(code: string, hostId: string): Promise<void> {
       lockouts: clearedFlags(game.public.lockouts),
       guessed: clearedFlags(game.public.guessed),
       doublePortionWager: null,
+      lastTrumpetCategory: null,
+      lastTrumpetClue: null,
       lastTrumpetLocked: false,
       revealedAnswer: null,
       revealQueue: [],

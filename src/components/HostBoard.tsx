@@ -2,7 +2,7 @@
 
 import { useOpenBuzzingWhenDue } from '@/hooks/useOpenBuzzingWhenDue';
 import { DOUBLE_PORTION, LAST_TRUMPET, ROUND1_LABEL, ROUND2_LABEL } from '@/lib/constants';
-import { dismissRevealedClue, openCell, type BoardGameView } from '@/lib/game';
+import { dismissRevealedClue, isLastTrumpetPhase, openCell, type BoardGameView } from '@/lib/game';
 import type { RoundId } from '@/lib/types';
 
 import { Board } from './Board';
@@ -43,7 +43,7 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
         <p className="text-2xl font-black text-gold">
           {phase === 'lobby'
             ? 'Lobby'
-            : phase === 'lastTrumpetWager' || phase === 'lastTrumpetReveal' || phase === 'ended'
+            : isLastTrumpetPhase(phase) || phase === 'ended'
               ? LAST_TRUMPET
               : round === 'round1'
                 ? ROUND1_LABEL
@@ -80,7 +80,7 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
         />
       ) : null}
 
-      {clue && phase !== 'board' && phase !== 'lastTrumpetWager' && phase !== 'lastTrumpetReveal' && phase !== 'ended' ? (
+      {clue && phase !== 'board' && !isLastTrumpetPhase(phase) && phase !== 'ended' ? (
         <section className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-gold/30 bg-blue-950 p-6 text-center">
           <p className="mb-3 text-3xl font-black uppercase tracking-widest text-gold">
             {clue.doublePortion ? DOUBLE_PORTION : `$${clue.value}`}
@@ -118,6 +118,15 @@ export function HostBoard({ code, hostId, game }: HostBoardProps) {
       ) : null}
 
       {phase === 'lastTrumpetWager' ? (
+        <section className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-gold/30 bg-blue-950 p-6 text-center">
+          <p className="mb-2 text-xl text-gold">{game.public?.lastTrumpetCategory}</p>
+          <h2 className="max-w-5xl text-[clamp(1.5rem,4.5vw,4rem)] font-black leading-tight">
+            Write your wager
+          </h2>
+        </section>
+      ) : null}
+
+      {phase === 'lastTrumpetAnswer' ? (
         <section className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-gold/30 bg-blue-950 p-6 text-center">
           <p className="mb-2 text-xl text-gold">{game.public?.lastTrumpetCategory}</p>
           <h2 className="max-w-5xl text-[clamp(1.5rem,4.5vw,4rem)] font-black leading-tight">

@@ -9,6 +9,7 @@ export type Phase =
   | 'doublePortion'
   | 'answerRevealed'
   | 'lastTrumpetWager'
+  | 'lastTrumpetAnswer'
   | 'lastTrumpetReveal'
   | 'ended';
 
@@ -78,7 +79,8 @@ export interface Proposal {
 export interface LastTrumpetSubmit {
   wager: number;
   answer: string;
-  submittedBy: string;
+  wagerBy: string;
+  answerBy: string;
 }
 
 export interface RevealEntry {
@@ -165,7 +167,9 @@ export interface HostOnly {
   clues: {
     round1: string[][];
     round2: string[][];
+    lastTrumpet: string;
   };
+  lastTrumpetCategory: string;
   doublePortion: Record<string, boolean>;
 }
 
