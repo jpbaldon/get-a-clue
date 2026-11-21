@@ -9,6 +9,7 @@ Anything contestants must not know yet **must not be rendered on the board scree
 That includes:
 
 - Clue answers, until the host uses Reveal/skip (then `public.revealedAnswer` is shown with the clue)
+- The Last Trumpet clue until wagers are locked (`public.lastTrumpetClue` stays null in the wager phase)
 - The Last Trumpet answer before the host reveals a team
 - Which cells are Double Portion, until that cell is opened (then it is public)
 - Host judging controls (Correct / Incorrect / Reveal / Undo / Open buzzing / buzz-on-reveal / buzz-after-delay)
@@ -28,6 +29,10 @@ The same Google host signs in on **two different browsers/devices** (`localStora
 `/host/[code]` is pairing: copy both URLs, claim one role per device. Do not start the game until both roles have fresh heartbeats from different device ids.
 
 Cell clicks are allowed on **both** host screens. The board still must not render unrevealed answers or unused Double Portion marks.
+
+## Last Trumpet
+
+Contestants wager from the **category only**. Do not put `public.lastTrumpetClue` on the board (or in `public`) until the host locks wagers. After that, show the clue so they can answer. Wagers must not change once the clue is public. Answers stay off the board until the host reveals a team.
 
 ## Double Portion
 

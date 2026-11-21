@@ -14,6 +14,7 @@ import {
   judgeDoublePortion,
   judgeLastTrumpet,
   lockLastTrumpetAnswers,
+  lockLastTrumpetWagers,
   openBuzzing,
   openCell,
   playAgain,
@@ -185,13 +186,46 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
         </section>
       ) : null}
 
-      {game.meta.phase === 'lastTrumpetWager' ? (
+      {game.meta.phase === 'lastTrumpetWager' || game.meta.phase === 'lastTrumpetAnswer' ? (
         <section className="rounded-2xl border border-gold/30 bg-white/5 p-6">
           <h2 className="mb-2 text-3xl font-black text-gold">{LAST_TRUMPET}</h2>
           <p className="mb-4 text-xl">{setData.lastTrumpet.category}</p>
           <p className="mb-4 text-3xl font-black">{setData.lastTrumpet.clue}</p>
-          <p className="mb-4 text-gold">Answer: {game.hostOnly?.answers.lastTrumpet}</p>
-          <Button onClick={() => void lockLastTrumpetAnswers(code, hostId)}>Lock answers</Button>
+          {game.meta.phase === 'lastTrumpetWager' ? (
+            <p className="mb-4 text-cream/80">
+              Contestants see the category only. Lock wagers to reveal the clue on the board.
+            </p>
+          ) : null}
+          <p className="mb-4 rounded-xl bg-black/30 p-3 text-xl text-gold">
+            Answer: {game.hostOnly?.answers.lastTrumpet}
+          </p>
+          <div className="mb-4 space-y-1 text-sm text-cream/80">
+            {activeTeamIds
+              .filter(([, team]) => team.score > 0)
+              .map(([teamId, team]) => {
+                const entry = game.lastTrumpet?.[teamId];
+                const status =
+                  game.meta.phase === 'lastTrumpetWager'
+                    ? entry?.wagerBy
+                      ? `wager $${entry.wager}`
+                      : 'waiting for wager'
+                    : entry?.answerBy
+                      ? `$${entry.wager} · answer in`
+                      : `$${entry?.wager ?? 0} · waiting for answer`;
+                return (
+                  <p key={teamId}>
+                    {team.name}: {status}
+                  </p>
+                );
+              })}
+          </div>
+          {game.meta.phase === 'lastTrumpetWager' ? (
+            <Button onClick={() => void lockLastTrumpetWagers(code, hostId, setData.lastTrumpet.clue)}>
+              Lock wagers
+            </Button>
+          ) : (
+            <Button onClick={() => void lockLastTrumpetAnswers(code, hostId)}>Lock answers</Button>
+          )}
         </section>
       ) : null}
 
@@ -245,7 +279,7 @@ export function HostControl({ code, hostId, game, setData }: HostControlProps) {
               <Button
                 onClick={() => {
                   setConfirmLastTrumpet(false);
-                  void startLastTrumpet(code, hostId);
+                  void startLastTrumpet(code, hostId, setData.lastTrumpet);
                 }}
               >
                 Start {LAST_TRUMPET}
